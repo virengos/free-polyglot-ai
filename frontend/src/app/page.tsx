@@ -119,11 +119,11 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {stats.languages.length > 0 && (
+      {(stats.languages ?? []).length > 0 && (
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 mb-6">
           <h2 className="text-sm font-semibold text-white mb-4">Sprachen</h2>
           <div className="space-y-4">
-            {stats.languages.map((lang) => (
+            {(stats.languages ?? []).map((lang) => (
               <div key={`${lang.source_language}-${lang.target_language}`}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm text-slate-300">

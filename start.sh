@@ -74,21 +74,50 @@ PYTHON_VERSION=$(python3 --version 2>&1)
 NODE_VERSION=$(node --version 2>&1)
 success "Python: $PYTHON_VERSION | Node: $NODE_VERSION"
 
-# ── Backend: .env erstellen falls fehlend ─────────────────────────────────────
+# ── Backend: .env erstellen / aktualisieren ───────────────────────────────────
+
+# Lese MISTRAL_API_KEY aus Root-.env wenn vorhanden
+ROOT_MISTRAL_KEY=""
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  ROOT_MISTRAL_KEY=$(grep -E '^MISTRAL_API_KEY=' "$SCRIPT_DIR/.env" \
+    | head -1 | cut -d= -f2- | tr -d "'\"\n " || true)
+fi
+
 if [[ ! -f "$BACKEND_DIR/.env" ]]; then
   info "Erstelle backend/.env mit Standard-Werten…"
-  cat > "$BACKEND_DIR/.env" << 'ENV'
-# Datenbank (SQLite als Standard, für Produktion PostgreSQL verwenden)
-DATABASE_URL=sqlite:///./polyglot.db
-
-# CORS
-FRONTEND_URL=http://localhost:3000
-
-# Optional: KI-Features
-# ANTHROPIC_API_KEY=sk-ant-...
-# MISTRAL_API_KEY=...
-ENV
+  {
+    echo "# Datenbank (SQLite als Standard, für Produktion PostgreSQL verwenden)"
+    echo "DATABASE_URL=sqlite:///./polyglot.db"
+    echo ""
+    echo "# CORS"
+    echo "FRONTEND_URL=http://localhost:3000"
+    echo ""
+    echo "# KI-Features"
+    if [[ -n "$ROOT_MISTRAL_KEY" ]]; then
+      echo "MISTRAL_API_KEY=${ROOT_MISTRAL_KEY}"
+    else
+      echo "# MISTRAL_API_KEY=..."
+    fi
+    echo "# ANTHROPIC_API_KEY=sk-ant-..."
+    echo "# LLM_MODEL=mistral-large-latest"
+  } > "$BACKEND_DIR/.env"
   success "backend/.env erstellt"
+else
+  # Vorhandene .env: MISTRAL_API_KEY eintragen/aktualisieren wenn aus Root-Env bekannt
+  if [[ -n "$ROOT_MISTRAL_KEY" ]]; then
+    if grep -q '^MISTRAL_API_KEY=' "$BACKEND_DIR/.env"; then
+      # Aktualisieren
+      sed -i "s|^MISTRAL_API_KEY=.*|MISTRAL_API_KEY=${ROOT_MISTRAL_KEY}|" "$BACKEND_DIR/.env"
+    else
+      # Hinzufügen (# MISTRAL_API_KEY= Zeile ersetzen oder ans Ende)
+      if grep -q '# MISTRAL_API_KEY=' "$BACKEND_DIR/.env"; then
+        sed -i "s|^# MISTRAL_API_KEY=.*|MISTRAL_API_KEY=${ROOT_MISTRAL_KEY}|" "$BACKEND_DIR/.env"
+      else
+        echo "MISTRAL_API_KEY=${ROOT_MISTRAL_KEY}" >> "$BACKEND_DIR/.env"
+      fi
+    fi
+    success "MISTRAL_API_KEY in backend/.env gesetzt"
+  fi
 fi
 
 # ── Backend: Virtuelle Umgebung ────────────────────────────────────────────────
@@ -114,14 +143,69 @@ if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
   success "Frontend-Abhängigkeiten installiert"
 fi
 
-# Frontend .env.local
-if [[ ! -f "$FRONTEND_DIR/.env.local" ]]; then
-  echo "NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}" > "$FRONTEND_DIR/.env.local"
-  success "frontend/.env.local erstellt"
-fi
+# ── Hilfsfunktionen: Port prüfen / freien Port finden ────────────────────────
+
+# Gibt 0 zurück wenn der Port belegt ist, 1 wenn frei
+port_in_use() {
+  ss -tlnH "sport = :$1" 2>/dev/null | grep -q .
+}
+
+# Versucht Port freizugeben; setzt globale Variable FREE_PORT auf den
+# tatsächlich nutzbaren Port (kann abweichen wenn kill fehlschlägt)
+free_port() {
+  local port="$1"
+  FREE_PORT="$port"
+
+  if ! port_in_use "$port"; then
+    return 0
+  fi
+
+  # PID ermitteln – mit -p sichtbar wenn eigener Prozess, sonst leer
+  local pid
+  pid=$(ss -tlnpH "sport = :$port" 2>/dev/null \
+        | grep -oP 'pid=\K[0-9]+' | head -1 || true)
+
+  if [[ -n "$pid" ]]; then
+    warn "Port $port wird von PID $pid belegt – versuche zu beenden…"
+    kill "$pid" 2>/dev/null || sudo kill "$pid" 2>/dev/null || true
+    sleep 1
+    if ! port_in_use "$port"; then
+      success "Port $port freigegeben"
+      return 0
+    fi
+    kill -9 "$pid" 2>/dev/null || sudo kill -9 "$pid" 2>/dev/null || true
+    sleep 1
+    if ! port_in_use "$port"; then
+      success "Port $port freigegeben"
+      return 0
+    fi
+  else
+    warn "Port $port ist belegt (Prozess gehört einem anderen Nutzer)"
+  fi
+
+  # Port konnte nicht freigegeben werden → nächsten freien suchen
+  warn "Suche alternativen Port ab $((port + 1))…"
+  local try=$(( port + 1 ))
+  while port_in_use "$try"; do
+    (( try++ ))
+    if (( try > port + 50 )); then
+      error "Kein freier Port im Bereich ${port}–$((port+50)) gefunden."
+      exit 1
+    fi
+  done
+  warn "Weiche auf Port $try aus"
+  FREE_PORT="$try"
+}
 
 # ── Backend starten ───────────────────────────────────────────────────────────
+free_port "$BACKEND_PORT"
+BACKEND_PORT="$FREE_PORT"
+
+# .env.local immer mit aktuellem Backend-Port schreiben
+echo "NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT}" > "$FRONTEND_DIR/.env.local"
+
 info "Starte Backend auf Port $BACKEND_PORT…"
+> "$LOG_DIR/backend.log"
 (
   cd "$BACKEND_DIR"
   source "$VENV_DIR/bin/activate"
@@ -144,7 +228,10 @@ else
 fi
 
 # ── Frontend starten ──────────────────────────────────────────────────────────
+free_port "$FRONTEND_PORT"
+FRONTEND_PORT="$FREE_PORT"
 info "Starte Frontend auf Port $FRONTEND_PORT…"
+> "$LOG_DIR/frontend.log"
 (
   cd "$FRONTEND_DIR"
   npm run dev -- --port "$FRONTEND_PORT" \

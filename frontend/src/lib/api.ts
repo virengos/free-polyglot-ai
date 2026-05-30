@@ -101,7 +101,7 @@ export const trainingApi = {
     user_id: number;
     word_id: number;
     quality: number; // 0-5
-    response_time_ms?: number;
+    mode: string;   // "flashcard" | "multiple_choice" | "write"
   }) =>
     api.post<ReviewResult>("/api/train/review", payload).then((r) => r.data),
 

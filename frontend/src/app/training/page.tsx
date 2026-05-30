@@ -29,9 +29,6 @@ export default function TrainingPage() {
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [done, setDone] = useState(false);
-  const sessionId = useRef<number | null>(null);
-  const startTime = useRef<number>(Date.now());
-
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
@@ -42,7 +39,8 @@ export default function TrainingPage() {
       setWrong(0);
       setDone(false);
       if (words.length > 0) setExerciseType(pickExerciseType(words[0]));
-    } catch {
+    } catch (err) {
+      console.error("Failed to load training queue", err);
       toast.error("Konnte Trainingswarteschlange nicht laden");
     } finally {
       setLoading(false);
@@ -62,14 +60,17 @@ export default function TrainingPage() {
         user_id: currentUserId,
         word_id: currentWord.id,
         quality,
+        mode: exerciseType,
       });
-      if (result.level_up) toast.success("🎉 Level Up!");
+      if (result.new_level !== null) toast.success("🎉 Level Up!");
       if (quality >= 3) setCorrect((c) => c + 1);
       else setWrong((w) => w + 1);
-    } catch {
-      console.error("Review submission failed");
+      advance();
+    } catch (err) {
+      console.error("Review submission failed", err);
+      toast.error("Bewertung konnte nicht gespeichert werden");
+      advance();
     }
-    advance();
   }
 
   function handleExerciseResult(isCorrect: boolean) {

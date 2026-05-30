@@ -62,8 +62,8 @@ export interface ProgressStats {
   total_xp: number;
   level: number;
   streak_days: number;
-  languages: LanguageStat[];
-  recent_sessions: TrainingSession[];
+  languages: LanguageStat[] | null;
+  recent_sessions: TrainingSession[] | null;
 }
 
 export interface LanguageStat {
@@ -80,11 +80,11 @@ export type ExerciseType = "flashcard" | "multiple_choice" | "write" | "fill";
 
 export interface ReviewResult {
   word_id: number;
-  quality: number;
-  new_interval: number;
-  new_memory_strength: number;
   xp_earned: number;
-  level_up: boolean;
+  memory_strength: number;
+  next_review: string;
+  correct: boolean;
+  new_level: number | null;
 }
 
 // ─── AI ──────────────────────────────────────────────────────────────────────

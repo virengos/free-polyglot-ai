@@ -7,7 +7,7 @@ Ein adaptiver, KI-gestützter Vokabeltrainer für Polyglotten. Trainiere mehrere
 - **Spaced Repetition (SM-2)**: Intelligente Wiederholungsplanung mit Gedächtnisstärkung 0–100
 - **3 Übungsformate**: Karteikarten (3D-Flip), Multiple Choice, Schreibmodus
 - **6 Sprachen**: Deutsch, Englisch, Spanisch, Französisch, Schwedisch, Polnisch
-- **KI-Inhalte**: Beispielsätze & Worterklärungen via Mistral AI oder Anthropic Claude
+- **KI-Inhalte**: Beispielsätze & Worterklärungen via **Mistral AI** (primär) oder Anthropic Claude (Fallback)
 - **Dashboard**: XP, Streak, Lernfortschritt, Sprachstatistiken
 - **Text-to-Speech**: Browser-native Aussprache für jede Vokabel
 - **Demo-Daten**: Automatisches Seeding beim ersten Start
@@ -124,7 +124,7 @@ free-polyglot-ai/
 │   │   └── ai.py            # KI-Endpunkte
 │   └── services/
 │       ├── spaced_repetition.py  # SM-2 Algorithmus
-│       └── ai_service.py         # Claude-Integration
+│       └── ai_service.py         # Mistral AI (primär) + Anthropic (Fallback)
 │
 └── frontend/
     └── src/

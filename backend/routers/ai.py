@@ -33,7 +33,7 @@ async def generate_sentence(payload: SentenceRequest):
     if result is None:
         raise HTTPException(
             503,
-            "AI service unavailable. Set ANTHROPIC_API_KEY in backend/.env to enable this feature.",
+            "AI service unavailable. Set MISTRAL_API_KEY (or ANTHROPIC_API_KEY) in .env to enable this feature.",
         )
     return {"sentence": result}
 
@@ -46,7 +46,7 @@ async def generate_word_info(payload: WordInfoRequest):
     if result is None:
         raise HTTPException(
             503,
-            "AI service unavailable. Set ANTHROPIC_API_KEY in backend/.env to enable this feature.",
+            "AI service unavailable. Set MISTRAL_API_KEY (or ANTHROPIC_API_KEY) in .env to enable this feature.",
         )
     return result
 
