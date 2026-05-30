@@ -16,6 +16,9 @@ class User(Base):
     streak_last_date = Column(String, nullable=True)  # ISO date string
     native_language = Column(String, default="de")
     target_languages = Column(JSON, default=["en"])
+    language_proficiencies = Column(JSON, default={})  # e.g. {"en": "B2", "fr": "A1"}
+    daily_word_goal = Column(Integer, default=10)
+    preferred_exercises = Column(JSON, default=["flashcard", "multiple_choice", "write"])
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     words = relationship("VocabularyWord", back_populates="owner", cascade="all, delete")

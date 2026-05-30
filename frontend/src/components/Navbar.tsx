@@ -9,6 +9,7 @@ const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/training", icon: Dumbbell, label: "Training" },
   { href: "/vocabulary", icon: BookOpen, label: "Vocabulary" },
+  { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export default function Navbar() {

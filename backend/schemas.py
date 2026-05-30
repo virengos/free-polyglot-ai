@@ -15,6 +15,9 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     native_language: Optional[str] = None
     target_languages: Optional[List[str]] = None
+    language_proficiencies: Optional[dict] = None  # {"en": "B2", "fr": "A1"}
+    daily_word_goal: Optional[int] = None
+    preferred_exercises: Optional[List[str]] = None
 
 
 class UserOut(BaseModel):
@@ -27,6 +30,9 @@ class UserOut(BaseModel):
     streak_last_date: Optional[str]
     native_language: str
     target_languages: List[str]
+    language_proficiencies: dict
+    daily_word_goal: int
+    preferred_exercises: List[str]
     created_at: datetime.datetime
 
     model_config = {"from_attributes": True}

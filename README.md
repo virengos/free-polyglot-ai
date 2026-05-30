@@ -10,6 +10,7 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 - **AI content**: Example sentences & word explanations via **Mistral AI**
 - **Dashboard**: XP, streak, learning progress, language statistics
 - **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
+- **Settings**: Native language, target languages with CEFR proficiency levels (A1–C2), daily word goal, and preferred exercise types
 - **Demo data**: Automatic seeding on first launch
 
 ## Tech Stack
@@ -179,6 +180,7 @@ free-polyglot-ai/
 | `POST` | `/api/train/review` | Submit review rating |
 | `POST` | `/api/ai/sentence` | Generate AI example sentence |
 | `POST` | `/api/tts` | Text-to-speech (neural voice audio) |
+| `PUT` | `/api/users/{id}` | Update user settings (language, proficiency, goals) |
 
 Full documentation: http://localhost:8000/docs
 

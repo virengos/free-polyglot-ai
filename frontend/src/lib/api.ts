@@ -27,7 +27,13 @@ export const usersApi = {
   }) => api.post<User>("/api/users/", payload).then((r) => r.data),
   update: (
     id: number,
-    payload: { native_language?: string; target_languages?: string[] }
+    payload: {
+      native_language?: string;
+      target_languages?: string[];
+      language_proficiencies?: Record<string, string>;
+      daily_word_goal?: number;
+      preferred_exercises?: string[];
+    }
   ) => api.put<User>(`/api/users/${id}`, payload).then((r) => r.data),
   progress: (id: number) =>
     api.get<ProgressStats>(`/api/users/${id}/progress`).then((r) => r.data),

@@ -11,10 +11,28 @@ from models import Base
 from routers import vocabulary, training, progress, ai, tts
 
 
+def _run_migrations():
+    """Add columns that create_all won't add to existing tables."""
+    from sqlalchemy import text, inspect
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        existing_cols = {c["name"] for c in inspector.get_columns("users")}
+        migrations = [
+            ("language_proficiencies", "ALTER TABLE users ADD COLUMN language_proficiencies JSON DEFAULT '{}'"),
+            ("daily_word_goal",        "ALTER TABLE users ADD COLUMN daily_word_goal INTEGER DEFAULT 10"),
+            ("preferred_exercises",    "ALTER TABLE users ADD COLUMN preferred_exercises JSON DEFAULT '[\"flashcard\",\"multiple_choice\",\"write\"]'"),
+        ]
+        for col, sql in migrations:
+            if col not in existing_cols:
+                conn.execute(text(sql))
+        conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create all tables on startup
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
 
     # Auto-seed demo data if DB is empty
     from database import SessionLocal

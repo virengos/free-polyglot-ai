@@ -10,6 +10,9 @@ export interface User {
   streak_last_date: string | null;
   native_language: string;
   target_languages: string[];
+  language_proficiencies: Record<string, string>; // e.g. { "en": "B2", "fr": "A1" }
+  daily_word_goal: number;
+  preferred_exercises: string[];
   created_at: string;
 }
 
@@ -118,3 +121,18 @@ export const LANGUAGE_FLAGS: Record<string, string> = {
   sv: "🇸🇪",
   pl: "🇵🇱",
 };
+
+export const CEFR_LEVELS: { value: string; label: string }[] = [
+  { value: "A1", label: "A1 – Beginner" },
+  { value: "A2", label: "A2 – Elementary" },
+  { value: "B1", label: "B1 – Intermediate" },
+  { value: "B2", label: "B2 – Upper Intermediate" },
+  { value: "C1", label: "C1 – Advanced" },
+  { value: "C2", label: "C2 – Mastery" },
+];
+
+export const EXERCISE_TYPES: { value: string; label: string }[] = [
+  { value: "flashcard", label: "Flashcard" },
+  { value: "multiple_choice", label: "Multiple Choice" },
+  { value: "write", label: "Write the Answer" },
+];
