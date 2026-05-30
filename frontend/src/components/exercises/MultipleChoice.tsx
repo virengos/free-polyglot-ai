@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Volume2 } from "lucide-react";
 import type { VocabularyWord } from "@/types";
 import { cn, shuffle } from "@/lib/utils";
 import { LANGUAGE_FLAGS } from "@/types";
 import { vocabularyApi } from "@/lib/api";
+import { speak } from "@/lib/tts";
 
 interface MultipleChoiceProps {
   word: VocabularyWord;
@@ -17,6 +18,7 @@ export default function MultipleChoice({ word, onResult }: MultipleChoiceProps) 
   const [options, setOptions] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
     setSelected(null);
@@ -49,7 +51,27 @@ export default function MultipleChoice({ word, onResult }: MultipleChoiceProps) 
         <p className="text-slate-400 text-sm mb-2">
           {LANGUAGE_FLAGS[word.source_language]} What is the translation of
         </p>
-        <p className="text-4xl font-bold text-white">{word.word}</p>
+        <div className="flex items-center justify-center gap-3">
+          <p className="text-4xl font-bold text-white">{word.word}</p>
+          <button
+            type="button"
+            onClick={() =>
+              speak(word.word, word.source_language, {
+                onStart: () => setIsSpeaking(true),
+                onEnd: () => setIsSpeaking(false),
+              })
+            }
+            className={cn(
+              "transition-colors",
+              isSpeaking
+                ? "text-indigo-400 animate-pulse"
+                : "text-slate-400 hover:text-white"
+            )}
+            title="Pronunciation"
+          >
+            <Volume2 className="h-5 w-5" />
+          </button>
+        </div>
         {word.part_of_speech && (
           <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full mt-2 inline-block">
             {word.part_of_speech}

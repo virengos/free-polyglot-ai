@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, Volume2 } from "lucide-react";
 import type { VocabularyWord } from "@/types";
 import { cn } from "@/lib/utils";
 import { LANGUAGE_FLAGS } from "@/types";
+import { speak } from "@/lib/tts";
 
 interface WriteExerciseProps {
   word: VocabularyWord;
@@ -20,6 +21,7 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [correct, setCorrect] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,13 +39,6 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
     setTimeout(() => onResult(isCorrect), 1500);
   }
 
-  function speak(text: string, lang: string) {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = lang;
-    window.speechSynthesis.speak(utt);
-  }
-
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-lg mx-auto">
       {/* Prompt */}
@@ -56,8 +51,18 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
           <p className="text-4xl font-bold text-white">{word.word}</p>
           <button
             type="button"
-            onClick={() => speak(word.word, word.source_language)}
-            className="text-slate-400 hover:text-white transition-colors"
+            onClick={() =>
+              speak(word.word, word.source_language, {
+                onStart: () => setIsSpeaking(true),
+                onEnd: () => setIsSpeaking(false),
+              })
+            }
+            className={cn(
+              "transition-colors",
+              isSpeaking
+                ? "text-indigo-400 animate-pulse"
+                : "text-slate-400 hover:text-white"
+            )}
           >
             <Volume2 className="h-5 w-5" />
           </button>

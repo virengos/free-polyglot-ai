@@ -3,7 +3,8 @@
 import { cn, memoryColor, memoryLabel } from "@/lib/utils";
 import { LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import type { VocabularyWord } from "@/types";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Volume2 } from "lucide-react";
+import { speak } from "@/lib/tts";
 
 interface VocabCardProps {
   word: VocabularyWord;
@@ -24,8 +25,26 @@ export default function VocabCard({ word, onEdit, onDelete }: VocabCardProps) {
                 {word.part_of_speech}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => speak(word.word, word.source_language)}
+              className="text-slate-500 hover:text-white transition-colors"
+              title="Speak word"
+            >
+              <Volume2 className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <p className="text-slate-300 text-sm mt-0.5">{word.translation}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-slate-300 text-sm">{word.translation}</p>
+            <button
+              type="button"
+              onClick={() => speak(word.translation, word.target_language)}
+              className="text-slate-600 hover:text-slate-300 transition-colors"
+              title="Speak translation"
+            >
+              <Volume2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
         <div className="flex gap-1 shrink-0">
           {onEdit && (

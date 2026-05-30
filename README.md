@@ -7,9 +7,9 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 - **Spaced Repetition (SM-2)**: Intelligent review scheduling with memory strength 0–100
 - **3 Exercise formats**: Flashcards (3D flip), Multiple Choice, Write mode
 - **6 Languages**: German, English, Spanish, French, Swedish, Polish
-- **AI content**: Example sentences & word explanations via **Mistral AI** (primary) or Anthropic Claude (fallback)
+- **AI content**: Example sentences & word explanations via **Mistral AI**
 - **Dashboard**: XP, streak, learning progress, language statistics
-- **Text-to-Speech**: Browser-native pronunciation for every word
+- **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
 - **Demo data**: Automatic seeding on first launch
 
 ## Tech Stack
@@ -19,7 +19,8 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 | Frontend | Next.js 16, TypeScript, Tailwind CSS, Framer Motion, Zustand |
 | Backend | FastAPI (Python 3.12), SQLAlchemy ORM |
 | Database | SQLite (default) / PostgreSQL |
-| AI | Mistral AI · Anthropic Claude (optional, via API key) |
+| AI | Mistral AI (via `MISTRAL_API_KEY`) |
+| TTS | edge-tts (Microsoft Azure Neural Voices — free, no API key) |
 | DevOps | Docker Compose, start.sh |
 
 ## Quick Start
@@ -58,9 +59,7 @@ pip install -r requirements.txt
 cat > .env << 'EOF'
 DATABASE_URL=sqlite:///./polyglot.db
 FRONTEND_URL=http://localhost:3000
-# Optional AI:
-# MISTRAL_API_KEY=...
-# ANTHROPIC_API_KEY=sk-ant-...
+MISTRAL_API_KEY=your-key-here   # Required for AI features
 EOF
 
 uvicorn main:app --reload
@@ -94,18 +93,34 @@ All services start automatically. Demo data is loaded on first launch.
 | Variable | Description | Default |
 |----------|-------------|--------|
 | `DATABASE_URL` | SQLite or PostgreSQL URL | `sqlite:///./polyglot.db` |
-| `MISTRAL_API_KEY` | Mistral AI API key for AI features | *(optional)* |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API key | *(optional)* |
+| `MISTRAL_API_KEY` | Mistral AI key for AI features (sentences, word info) | *(optional)* |
 | `FRONTEND_URL` | CORS origin of the frontend | `http://localhost:3000` |
 
 > When `MISTRAL_API_KEY` is set, the AI endpoints (`/api/ai/*`) are activated.  
 > The file `backend/.env` is **not** committed to the repository (`.gitignore`).
+>
+> **Text-to-Speech** works out of the box without any API key — it uses Microsoft Edge TTS (Azure Neural Voices) via the `edge-tts` library.
 
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Description | Default |
 |----------|-------------|--------|
 | `NEXT_PUBLIC_API_URL` | URL of the backend | `http://localhost:8000` |
+
+## Text-to-Speech
+
+Pronunciation is powered by **Microsoft Edge TTS** (Azure Cognitive Services Neural Voices), free and with no API key required. A high-quality female voice is used for each supported language:
+
+| Language | Voice |
+|----------|-------|
+| German | `de-DE-KatjaNeural` |
+| English | `en-GB-SoniaNeural` |
+| Spanish | `es-ES-ElviraNeural` |
+| French | `fr-FR-DeniseNeural` |
+| Swedish | `sv-SE-SofieNeural` |
+| Polish | `pl-PL-ZofiaNeural` |
+
+Speaker buttons appear on every word card, flashcard (front & back), and exercise. The example sentence on the back of flashcards is also speakable. If the backend is unreachable, the browser's built-in Web Speech API is used as a fallback.
 
 ## Project Structure
 
@@ -118,6 +133,55 @@ free-polyglot-ai/
 │   ├── database.py          # DB connection
 │   ├── seed_data.py         # Demo vocabulary
 │   ├── routers/
+│   │   ├── vocabulary.py    # CRUD words
+│   │   ├── training.py      # Queue, review, sessions
+│   │   ├── progress.py      # Statistics, user management
+│   │   ├── ai.py            # AI endpoints
+│   │   └── tts.py           # Neural TTS endpoint (edge-tts)
+│   └── services/
+│       ├── spaced_repetition.py  # SM-2 algorithm
+│       └── ai_service.py         # Mistral AI integration
+│
+└── frontend/
+    └── src/
+        ├── app/
+        │   ├── page.tsx         # Dashboard
+        │   ├── training/        # Training page
+        │   └── vocabulary/      # Vocabulary management
+        ├── components/
+        │   ├── exercises/
+        │   │   ├── Flashcard.tsx       # 3D flashcard
+        │   │   ├── MultipleChoice.tsx  # Multiple choice exercise
+        │   │   └── WriteExercise.tsx   # Write mode
+        │   ├── Navbar.tsx
+        │   ├── AddWordModal.tsx
+        │   ├── VocabCard.tsx
+        │   ├── StatCard.tsx
+        │   └── ProgressBar.tsx
+        ├── lib/
+        │   ├── api.ts       # Axios API client
+        │   ├── tts.ts       # TTS utility (edge-tts via backend, Web Speech fallback)
+        │   └── utils.ts     # Helper functions
+        ├── store/
+        │   └── appStore.ts  # Zustand state management
+        └── types/
+            └── index.ts     # TypeScript types
+```
+
+## API Overview
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/users/{id}/progress` | Learning statistics |
+| `GET` | `/api/words/` | Vocabulary list |
+| `POST` | `/api/words/` | Add word |
+| `GET` | `/api/train/queue` | Training queue |
+| `POST` | `/api/train/review` | Submit review rating |
+| `POST` | `/api/ai/sentence` | Generate AI example sentence |
+| `POST` | `/api/tts` | Text-to-speech (neural voice audio) |
+
+Full documentation: http://localhost:8000/docs
+
 │   │   ├── vocabulary.py    # CRUD words
 │   │   ├── training.py      # Queue, review, sessions
 │   │   ├── progress.py      # Statistics, user management

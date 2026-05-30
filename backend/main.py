@@ -8,7 +8,7 @@ load_dotenv()
 
 from database import engine
 from models import Base
-from routers import vocabulary, training, progress, ai
+from routers import vocabulary, training, progress, ai, tts
 
 
 @asynccontextmanager
@@ -51,6 +51,7 @@ app.include_router(vocabulary.router)
 app.include_router(training.router)
 app.include_router(progress.router)
 app.include_router(ai.router)
+app.include_router(tts.router)
 
 
 @app.get("/")

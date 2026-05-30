@@ -6,6 +6,7 @@ import { RotateCcw, Volume2 } from "lucide-react";
 import type { VocabularyWord } from "@/types";
 import { cn, memoryColor, memoryLabel } from "@/lib/utils";
 import { LANGUAGE_FLAGS } from "@/types";
+import { speak } from "@/lib/tts";
 
 interface FlashcardProps {
   word: VocabularyWord;
@@ -22,12 +23,11 @@ const QUALITY_BUTTONS = [
 
 export default function Flashcard({ word, onRate }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
 
-  function speak(text: string, lang: string) {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = lang;
-    window.speechSynthesis.speak(utt);
+  function triggerSpeak(text: string, lang: string, key: string) {
+    setSpeakingKey(key);
+    speak(text, lang, { onEnd: () => setSpeakingKey(null) });
   }
 
   return (
@@ -65,9 +65,14 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  speak(word.word, word.source_language);
+                  triggerSpeak(word.word, word.source_language, "word");
                 }}
-                className="text-slate-400 hover:text-white transition-colors"
+                className={cn(
+                  "transition-colors",
+                  speakingKey === "word"
+                    ? "text-indigo-400 animate-pulse"
+                    : "text-slate-400 hover:text-white"
+                )}
                 title="Pronunciation"
               >
                 <Volume2 className="h-5 w-5" />
@@ -81,27 +86,51 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
             className="absolute inset-0 bg-indigo-900 border border-indigo-700 rounded-2xl p-8 flex flex-col items-center justify-center gap-4"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
-            <p className="text-3xl font-bold text-white">{word.translation}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-3xl font-bold text-white">{word.translation}</p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerSpeak(word.translation, word.target_language, "translation");
+                }}
+                className={cn(
+                  "transition-colors",
+                  speakingKey === "translation"
+                    ? "text-indigo-400 animate-pulse"
+                    : "text-indigo-300 hover:text-white"
+                )}
+                title="Pronunciation"
+              >
+                <Volume2 className="h-5 w-5" />
+              </button>
+            </div>
             {word.example_sentence && (
-              <p className="text-slate-300 text-sm italic text-center mt-2">
-                „{word.example_sentence}"
-              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-slate-300 text-sm italic text-center">
+                  „{word.example_sentence}"
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerSpeak(word.example_sentence!, word.source_language, "example");
+                  }}
+                  className={cn(
+                    "transition-colors shrink-0",
+                    speakingKey === "example"
+                      ? "text-indigo-400 animate-pulse"
+                      : "text-slate-500 hover:text-slate-300"
+                  )}
+                  title="Speak example sentence"
+                >
+                  <Volume2 className="h-4 w-4" />
+                </button>
+              </div>
             )}
             {word.example_translation && (
               <p className="text-slate-400 text-xs text-center">
                 {word.example_translation}
               </p>
             )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                speak(word.translation, word.target_language);
-              }}
-              className="text-indigo-300 hover:text-white transition-colors mt-2"
-              title="Pronunciation"
-            >
-              <Volume2 className="h-5 w-5" />
-            </button>
           </div>
         </motion.div>
       </div>

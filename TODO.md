@@ -1,4 +1,4 @@
-[-] Update documentation, create a commit message and push changes to the repository
+[x] Update documentation, create a commit message and push changes to the repository
 
 [x] Launch application via ./start.sh script
 
@@ -14,7 +14,7 @@
 
 [-] Access to Mistral AI via private key in the .env file
 
-[-] Improve text-to-speech to the level of Quizlet or Google Translate. Start with a pleasant female voice.
+[x] Improve text-to-speech to the level of Quizlet or Google Translate. Start with a pleasant female voice.
 
 [-] Example sentences should also be speakable
 
