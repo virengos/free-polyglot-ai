@@ -25,7 +25,7 @@ def _get_mistral():
     if _mistral_client is None:
         key = os.getenv("MISTRAL_API_KEY", "").strip().strip("'\"")
         if key:
-            from mistralai.client.sdk import Mistral
+            from mistralai import Mistral
             _mistral_client = Mistral(api_key=key)
     return _mistral_client
 
@@ -103,4 +103,47 @@ async def generate_context_story(words: list[str], language: str) -> Optional[st
         "Bold each vocabulary word with **word**. Return only the story."
     )
     return _chat(prompt, max_tokens=400)
+
+
+async def suggest_vocabulary(
+    existing_words: list[dict],
+    source_lang: str,
+    target_lang: str,
+    count: int = 5,
+) -> Optional[list[dict]]:
+    """Ask the AI to suggest new vocabulary words based on existing ones."""
+    src = LANGUAGE_NAMES.get(source_lang, source_lang)
+    tgt = LANGUAGE_NAMES.get(target_lang, target_lang)
+
+    sample = existing_words[:15]
+    if sample:
+        word_list = ", ".join(f'"{w["word"]}" ({w["translation"]})' for w in sample)
+        context = f"They already know these words: {word_list}. "
+    else:
+        context = ""
+
+    prompt = (
+        f"A language learner is learning {tgt} from {src}. "
+        f"{context}"
+        f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words at beginner/intermediate level. "
+        "Do not repeat words already in the list. "
+        "Return ONLY a JSON array with no extra text:\n"
+        '[{"word":"...","translation":"...","part_of_speech":"...","example_sentence":"...","example_translation":"..."}]'
+    )
+
+    raw = _chat(prompt, max_tokens=1200)
+    if raw is None:
+        return None
+    try:
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start >= 0 and end > start:
+            raw = raw[start:end]
+        return json.loads(raw.strip())
+    except Exception:
+        return None
 

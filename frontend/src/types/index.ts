@@ -35,6 +35,7 @@ export interface VocabularyWord {
   repetitions: number;
   next_review: string;
   memory_strength: number;
+  is_favorite: boolean;
   times_correct: number;
   times_wrong: number;
   last_reviewed: string | null;

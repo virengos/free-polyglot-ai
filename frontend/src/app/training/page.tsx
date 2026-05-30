@@ -2,22 +2,25 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { trainingApi } from "@/lib/api";
-import type { VocabularyWord, ExerciseType } from "@/types";
+import { trainingApi, vocabularyApi, usersApi, aiApi } from "@/lib/api";
+import type { VocabularyWord, ExerciseType, User } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import Flashcard from "@/components/exercises/Flashcard";
 import MultipleChoice from "@/components/exercises/MultipleChoice";
 import WriteExercise from "@/components/exercises/WriteExercise";
 import ProgressBar from "@/components/ProgressBar";
-import { CheckCircle, XCircle, Trophy } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, Sparkles, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
 
-const EXERCISE_TYPES: ExerciseType[] = ["flashcard", "multiple_choice", "write"];
+const ALL_EXERCISE_TYPES: ExerciseType[] = ["flashcard", "multiple_choice", "write"];
 
-function pickExerciseType(word: VocabularyWord): ExerciseType {
-  // New words → flashcard first; practiced words → vary
-  if (word.repetitions === 0) return "flashcard";
-  return EXERCISE_TYPES[Math.floor(Math.random() * EXERCISE_TYPES.length)];
+function pickExerciseType(word: VocabularyWord, allowed: ExerciseType[]): ExerciseType {
+  const types = allowed.length > 0 ? allowed : ALL_EXERCISE_TYPES;
+  // New words → flashcard first (if allowed), else first in list
+  if (word.repetitions === 0) {
+    return types.includes("flashcard") ? "flashcard" : types[0];
+  }
+  return types[Math.floor(Math.random() * types.length)];
 }
 
 export default function TrainingPage() {
@@ -29,16 +32,31 @@ export default function TrainingPage() {
   const [correct, setCorrect] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [done, setDone] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [hasAnyWords, setHasAnyWords] = useState(false);
+
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const words = await trainingApi.queue({ user_id: currentUserId, limit: 20 });
+      const [words, userData] = await Promise.all([
+        trainingApi.queue({ user_id: currentUserId, limit: 20 }),
+        usersApi.get(currentUserId),
+      ]);
+      setUser(userData);
       setQueue(words);
       setIndex(0);
       setCorrect(0);
       setWrong(0);
       setDone(false);
-      if (words.length > 0) setExerciseType(pickExerciseType(words[0]));
+      const allowed = (userData.preferred_exercises ?? []) as ExerciseType[];
+      if (words.length > 0) {
+        setExerciseType(pickExerciseType(words[0], allowed));
+      } else {
+        // Check if there are any words at all to offer "practice anyway"
+        const all = await trainingApi.queue({ user_id: currentUserId, limit: 1, include_all: true });
+        setHasAnyWords(all.length > 0);
+      }
     } catch (err) {
       console.error("Failed to load training queue", err);
       toast.error("Could not load training queue");
@@ -46,6 +64,46 @@ export default function TrainingPage() {
       setLoading(false);
     }
   }, [currentUserId]);
+
+  async function practiceAll() {
+    setLoading(true);
+    try {
+      const words = await trainingApi.queue({ user_id: currentUserId, limit: 20, include_all: true });
+      setQueue(words);
+      setIndex(0);
+      setCorrect(0);
+      setWrong(0);
+      setDone(false);
+      const allowed = (user?.preferred_exercises ?? []) as ExerciseType[];
+      if (words.length > 0) setExerciseType(pickExerciseType(words[0], allowed));
+    } catch {
+      toast.error("Could not load words");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function suggestWords() {
+    const sourceLang = user?.native_language ?? "de";
+    const targetLang = user?.target_languages?.[0] ?? "en";
+    setSuggesting(true);
+    try {
+      const result = await aiApi.suggestWords({
+        user_id: currentUserId,
+        source_language: sourceLang,
+        target_language: targetLang,
+        count: 8,
+      });
+      toast.success(`${result.added} new words added to your vocabulary!`);
+      // Reload queue – new words have repetitions=0, so they'll appear immediately
+      loadQueue();
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? "AI service unavailable. Check your MISTRAL_API_KEY.";
+      toast.error(msg);
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   useEffect(() => {
     loadQueue();
@@ -77,13 +135,23 @@ export default function TrainingPage() {
     handleRating(isCorrect ? 4 : 1);
   }
 
+  async function handleToggleFavorite(id: number) {
+    try {
+      const updated = await vocabularyApi.toggleFavorite(id);
+      setQueue((prev) => prev.map((w) => (w.id === id ? updated : w)));
+    } catch {
+      toast.error("Could not update favorite");
+    }
+  }
+
   function advance() {
     const next = index + 1;
     if (next >= queue.length) {
       setDone(true);
     } else {
       setIndex(next);
-      setExerciseType(pickExerciseType(queue[next]));
+      const allowed = (user?.preferred_exercises ?? []) as ExerciseType[];
+      setExerciseType(pickExerciseType(queue[next], allowed));
     }
   }
 
@@ -99,16 +167,39 @@ export default function TrainingPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
         <Trophy className="h-16 w-16 text-yellow-400" />
-        <h2 className="text-2xl font-bold text-white">All done!</h2>
-        <p className="text-slate-400 text-center">
-          No vocabulary words due. Add new ones or come back later.
+        <h2 className="text-2xl font-bold text-white">
+          {hasAnyWords ? "All caught up!" : "No vocabulary yet"}
+        </h2>
+        <p className="text-slate-400 text-center max-w-sm">
+          {hasAnyWords
+            ? "All your words are scheduled for a future review. Practice them anyway or let the AI suggest new ones."
+            : "You have no vocabulary words yet. Let the AI suggest words to get started!"}
         </p>
-        <a
-          href="/vocabulary"
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-        >
-          Manage Vocabulary
-        </a>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {hasAnyWords && (
+            <button
+              onClick={practiceAll}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Practice anyway
+            </button>
+          )}
+          <button
+            onClick={suggestWords}
+            disabled={suggesting}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          >
+            <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
+            {suggesting ? "Generating…" : "AI: Suggest new words"}
+          </button>
+          <a
+            href="/vocabulary"
+            className="flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          >
+            Manage Vocabulary
+          </a>
+        </div>
       </div>
     );
   }
@@ -197,7 +288,7 @@ export default function TrainingPage() {
             className="w-full max-w-lg"
           >
             {exerciseType === "flashcard" && (
-              <Flashcard word={currentWord} onRate={handleRating} />
+              <Flashcard word={currentWord} onRate={handleRating} onToggleFavorite={handleToggleFavorite} />
             )}
             {exerciseType === "multiple_choice" && (
               <MultipleChoice word={currentWord} onResult={handleExerciseResult} />

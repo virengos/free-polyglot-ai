@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { vocabularyApi } from "@/lib/api";
 import { LANGUAGES } from "@/types";
+import type { VocabularyWord } from "@/types";
 import toast from "react-hot-toast";
 
 interface AddWordModalProps {
@@ -12,19 +13,44 @@ interface AddWordModalProps {
   open: boolean;
   onClose: () => void;
   onAdded: () => void;
+  editWord?: VocabularyWord | null;
 }
 
-export default function AddWordModal({ userId, open, onClose, onAdded }: AddWordModalProps) {
-  const [form, setForm] = useState({
-    source_language: "de",
-    target_language: "en",
-    word: "",
-    translation: "",
-    part_of_speech: "",
-    example_sentence: "",
-    tags: "",
-  });
+const EMPTY_FORM = {
+  source_language: "de",
+  target_language: "en",
+  word: "",
+  translation: "",
+  part_of_speech: "",
+  example_sentence: "",
+  example_translation: "",
+  tags: "",
+  notes: "",
+};
+
+export default function AddWordModal({ userId, open, onClose, onAdded, editWord }: AddWordModalProps) {
+  const isEdit = !!editWord;
+  const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editWord) {
+      setForm({
+        source_language: editWord.source_language,
+        target_language: editWord.target_language,
+        word: editWord.word,
+        translation: editWord.translation,
+        part_of_speech: editWord.part_of_speech ?? "",
+        example_sentence: editWord.example_sentence ?? "",
+        example_translation: editWord.example_translation ?? "",
+        tags: editWord.tags.join(", "),
+        notes: editWord.notes ?? "",
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+  }, [editWord, open]);
 
   function update(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -35,26 +61,31 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
     if (!form.word.trim() || !form.translation.trim()) return;
     setLoading(true);
     try {
-      await vocabularyApi.create({
-        user_id: userId,
-        source_language: form.source_language,
-        target_language: form.target_language,
-        word: form.word.trim(),
-        translation: form.translation.trim(),
-        part_of_speech: form.part_of_speech.trim() || undefined,
-        example_sentence: form.example_sentence.trim() || undefined,
-        tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-      });
-      toast.success("Word added!");
-      setForm({
-        source_language: "de",
-        target_language: "en",
-        word: "",
-        translation: "",
-        part_of_speech: "",
-        example_sentence: "",
-        tags: "",
-      });
+      if (isEdit && editWord) {
+        await vocabularyApi.update(editWord.id, {
+          translation: form.translation.trim(),
+          part_of_speech: form.part_of_speech.trim() || undefined,
+          example_sentence: form.example_sentence.trim() || undefined,
+          example_translation: form.example_translation.trim() || undefined,
+          tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+          notes: form.notes.trim() || undefined,
+        });
+        toast.success("Word updated!");
+      } else {
+        await vocabularyApi.create({
+          user_id: userId,
+          source_language: form.source_language,
+          target_language: form.target_language,
+          word: form.word.trim(),
+          translation: form.translation.trim(),
+          part_of_speech: form.part_of_speech.trim() || undefined,
+          example_sentence: form.example_sentence.trim() || undefined,
+          example_translation: form.example_translation.trim() || undefined,
+          tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+          notes: form.notes.trim() || undefined,
+        });
+        toast.success("Word added!");
+      }
       onAdded();
       onClose();
     } catch {
@@ -82,7 +113,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-white">Add Word</h2>
+              <h2 className="text-lg font-bold text-white">{isEdit ? "Edit Word" : "Add Word"}</h2>
               <button
                 onClick={onClose}
                 className="text-slate-500 hover:text-white transition-colors"
@@ -92,14 +123,15 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {/* Language pair */}
+              {/* Language pair — read-only when editing */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-400 mb-1 block">Source language</label>
                   <select
                     value={form.source_language}
                     onChange={(e) => update("source_language", e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                    disabled={isEdit}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
                   >
                     {Object.entries(LANGUAGES).map(([code, name]) => (
                       <option key={code} value={code}>
@@ -113,7 +145,8 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                   <select
                     value={form.target_language}
                     onChange={(e) => update("target_language", e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm"
+                    disabled={isEdit}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
                   >
                     {Object.entries(LANGUAGES).map(([code, name]) => (
                       <option key={code} value={code}>
@@ -124,12 +157,13 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                 </div>
               </div>
 
-              {/* Word + Translation */}
+              {/* Word — read-only when editing (it's the source of truth) */}
               <Field
                 label="Word"
                 value={form.word}
                 placeholder="e.g. Haus"
                 onChange={(v) => update("word", v)}
+                disabled={isEdit}
               />
               <Field
                 label="Translation"
@@ -150,6 +184,18 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                 onChange={(v) => update("example_sentence", v)}
               />
               <Field
+                label="Example translation (optional)"
+                value={form.example_translation}
+                placeholder="e.g. The house is big."
+                onChange={(v) => update("example_translation", v)}
+              />
+              <Field
+                label="Notes (optional)"
+                value={form.notes}
+                placeholder="e.g. used in formal contexts"
+                onChange={(v) => update("notes", v)}
+              />
+              <Field
                 label="Tags (comma-separated, optional)"
                 value={form.tags}
                 placeholder="e.g. everyday, home"
@@ -162,7 +208,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                 className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save
+                {isEdit ? "Save changes" : "Add word"}
               </button>
             </form>
           </motion.div>
@@ -177,11 +223,13 @@ function Field({
   value,
   placeholder,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   placeholder: string;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -190,7 +238,8 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
+        disabled={disabled}
+        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
       />
     </div>
   );

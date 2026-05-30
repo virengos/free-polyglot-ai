@@ -1,16 +1,19 @@
 # 🌍 Polyglot AI – AI Vocabulary Trainer
 
-An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languages in parallel with spaced repetition, AI-generated content, and various exercise formats.
+An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languages in parallel with spaced repetition (SM-2), AI-generated content, favorites, and various exercise formats.
 
 ## Features
 
-- **Spaced Repetition (SM-2)**: Intelligent review scheduling with memory strength 0–100
-- **3 Exercise formats**: Flashcards (3D flip), Multiple Choice, Write mode
+- **Spaced Repetition (SM-2)**: Intelligent review scheduling — well-known words are only repeated after a growing interval (1 day → 6 → 15 → ...). Memory strength shown as 0–100%
+- **3 Exercise formats**: Flashcards (3D flip), Multiple Choice, Write mode — configurable per user in Settings
 - **6 Languages**: German, English, Spanish, French, Swedish, Polish
-- **AI content**: Example sentences & word explanations via **Mistral AI**
-- **Dashboard**: XP, streak, learning progress, language statistics
+- **AI content**: Example sentences, word explanations & **automatic vocabulary suggestions** via **Mistral AI**
+- **Favorites**: Star any word on the flashcard or vocabulary list; filter to show only favorites
+- **Vocabulary editing**: Edit translation, example sentence, notes and tags without resetting learning progress
+- **Dashboard**: XP, level, streak, learning progress (Mastered / In Progress / New), language statistics
 - **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
 - **Settings**: Native language, target languages with CEFR proficiency levels (A1–C2), daily word goal, and preferred exercise types
+- **AI vocabulary suggestions**: The AI automatically suggests and saves new vocabulary words based on existing ones — available on the Training and Vocabulary pages
 - **Demo data**: Automatic seeding on first launch
 
 ## Tech Stack
@@ -122,6 +125,22 @@ Pronunciation is powered by **Microsoft Edge TTS** (Azure Cognitive Services Neu
 | Polish | `pl-PL-ZofiaNeural` |
 
 Speaker buttons appear on every word card, flashcard (front & back), and exercise. The example sentence on the back of flashcards is also speakable. If the backend is unreachable, the browser's built-in Web Speech API is used as a fallback.
+
+## API Overview
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/train/queue` | Words due for review (SM-2); `include_all=true` for forced practice |
+| `POST` | `/api/train/review` | Submit rating (0–5) and update SM-2 state |
+| `GET` | `/api/words/` | List vocabulary; supports `search`, `target_language`, `favorites_only` |
+| `PATCH` | `/api/words/{id}/favorite` | Toggle favorite status |
+| `PUT` | `/api/words/{id}` | Edit word (does not reset learning progress) |
+| `GET` | `/api/users/{id}/progress` | Full progress stats (mastered, learning, new, accuracy) |
+| `POST` | `/api/ai/suggest` | AI suggests & auto-saves new words for a language pair |
+| `POST` | `/api/ai/sentence` | Generate example sentence for a word |
+| `GET` | `/api/tts/speak` | Edge TTS audio stream |
+
+Full interactive docs: http://localhost:8000/docs
 
 ## Project Structure
 

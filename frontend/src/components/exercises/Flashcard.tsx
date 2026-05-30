@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RotateCcw, Volume2 } from "lucide-react";
+import { RotateCcw, Volume2, Star } from "lucide-react";
 import type { VocabularyWord } from "@/types";
 import { cn, memoryColor, memoryLabel } from "@/lib/utils";
 import { LANGUAGE_FLAGS } from "@/types";
@@ -11,6 +11,7 @@ import { speak } from "@/lib/tts";
 interface FlashcardProps {
   word: VocabularyWord;
   onRate: (quality: number) => void;
+  onToggleFavorite?: (id: number) => void;
 }
 
 const QUALITY_BUTTONS = [
@@ -21,7 +22,7 @@ const QUALITY_BUTTONS = [
   { q: 5, label: "Perfect", color: "bg-emerald-600 hover:bg-emerald-500" },
 ];
 
-export default function Flashcard({ word, onRate }: FlashcardProps) {
+export default function Flashcard({ word, onRate, onToggleFavorite }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
 
@@ -38,6 +39,24 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
         style={{ perspective: 1000 }}
         onClick={() => setFlipped((f) => !f)}
       >
+        {/* Favorite star button */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(word.id);
+            }}
+            className={cn(
+              "absolute top-3 right-3 z-10 transition-colors",
+              word.is_favorite
+                ? "text-yellow-400 hover:text-yellow-300"
+                : "text-slate-600 hover:text-slate-400"
+            )}
+            title={word.is_favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star className={cn("h-5 w-5", word.is_favorite && "fill-yellow-400")} />
+          </button>
+        )}
         <motion.div
           className="relative w-full"
           style={{ transformStyle: "preserve-3d" }}
@@ -104,15 +123,15 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>
-            {word.example_sentence && (
+            {word.example_translation && (
               <div className="flex items-center gap-2 mt-2">
                 <p className="text-slate-300 text-sm italic text-center">
-                  „{word.example_sentence}"
+                  „{word.example_translation}"
                 </p>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    triggerSpeak(word.example_sentence!, word.source_language, "example");
+                    triggerSpeak(word.example_translation!, word.target_language, "example");
                   }}
                   className={cn(
                     "transition-colors shrink-0",
@@ -126,9 +145,9 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
                 </button>
               </div>
             )}
-            {word.example_translation && (
-              <p className="text-slate-400 text-xs text-center">
-                {word.example_translation}
+            {word.example_sentence && (
+              <p className="text-slate-500 text-xs text-center italic">
+                {word.example_sentence}
               </p>
             )}
           </div>

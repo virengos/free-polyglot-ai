@@ -47,6 +47,7 @@ export const vocabularyApi = {
     source_language?: string;
     target_language?: string;
     search?: string;
+    favorites_only?: boolean;
   }) =>
     api.get<VocabularyWord[]>("/api/words/", { params }).then((r) => r.data),
 
@@ -83,6 +84,9 @@ export const vocabularyApi = {
   delete: (id: number) =>
     api.delete(`/api/words/${id}`).then((r) => r.data),
 
+  toggleFavorite: (id: number) =>
+    api.patch<VocabularyWord>(`/api/words/${id}/favorite`).then((r) => r.data),
+
   distractors: (id: number, count = 3) =>
     api
       .get<string[]>(`/api/words/${id}/distractors`, { params: { count } })
@@ -98,6 +102,7 @@ export const trainingApi = {
     target_lang?: string;
     limit?: number;
     include_new?: boolean;
+    include_all?: boolean;
   }) =>
     api
       .get<VocabularyWord[]>("/api/train/queue", { params })
@@ -141,6 +146,16 @@ export const aiApi = {
   story: (words: string[], language: string) =>
     api
       .post<{ story: string }>("/api/ai/story", { words, language })
+      .then((r) => r.data),
+
+  suggestWords: (payload: {
+    user_id: number;
+    source_language: string;
+    target_language: string;
+    count?: number;
+  }) =>
+    api
+      .post<{ added: number; words: VocabularyWord[] }>("/api/ai/suggest", payload)
       .then((r) => r.data),
 };
 

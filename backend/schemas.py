@@ -63,6 +63,7 @@ class WordUpdate(BaseModel):
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
     image_url: Optional[str] = None
+    is_favorite: Optional[bool] = None
 
 
 class WordOut(BaseModel):
@@ -83,6 +84,7 @@ class WordOut(BaseModel):
     interval: int
     repetitions: int
     memory_strength: int
+    is_favorite: bool
     times_correct: int
     times_wrong: int
     last_reviewed: Optional[datetime.datetime]
@@ -136,21 +138,25 @@ class SessionEnd(BaseModel):
 # ── Progress ──────────────────────────────────────────────────────────────────
 
 class LanguageStat(BaseModel):
-    language: str
+    source_language: str
+    target_language: str
     total_words: int
-    known_words: int      # memory_strength >= 70
-    learning_words: int   # memory_strength 30–69
-    new_words: int        # memory_strength < 30
-    due_today: int
+    mastered: int           # memory_strength >= 80
+    avg_memory_strength: float
 
 
 class ProgressOut(BaseModel):
-    user: UserOut
+    user_id: int
     total_words: int
+    words_mastered: int     # memory_strength >= 80
+    words_learning: int     # memory_strength 10–79
+    words_new: int          # memory_strength < 10 and never reviewed
+    words_due_now: int
+    total_reviews: int
+    correct_reviews: int
+    accuracy_percent: float
     total_xp: int
     level: int
     streak_days: int
-    sessions_count: int
-    accuracy_rate: float
-    language_stats: List[LanguageStat]
-    words_due_today: int
+    languages: List[LanguageStat]
+    recent_sessions: Optional[List[SessionOut]] = None

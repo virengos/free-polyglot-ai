@@ -18,10 +18,12 @@ def get_training_queue(
     target_lang: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
     include_new: bool = True,
+    include_all: bool = False,
     db: Session = Depends(get_db),
 ):
     """
     Return words due for review (next_review <= now) and optionally new words.
+    When include_all=True, return ALL words sorted by weakest memory first.
     Sorted by: overdue first, then by memory_strength ascending.
     """
     now = datetime.datetime.utcnow()
@@ -30,6 +32,12 @@ def get_training_queue(
         q = q.filter(VocabularyWord.source_language == source_lang)
     if target_lang:
         q = q.filter(VocabularyWord.target_language == target_lang)
+
+    if include_all:
+        return q.order_by(
+            VocabularyWord.memory_strength.asc(),
+            VocabularyWord.next_review.asc(),
+        ).limit(limit).all()
 
     due = q.filter(VocabularyWord.next_review <= now).order_by(
         VocabularyWord.next_review.asc(),

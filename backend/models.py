@@ -42,6 +42,8 @@ class VocabularyWord(Base):
     tags = Column(JSON, default=[])
     notes = Column(Text, nullable=True)
 
+    is_favorite = Column(Boolean, default=False)
+
     # SM-2 Spaced Repetition
     ease_factor = Column(Float, default=2.5)
     interval = Column(Integer, default=0)        # days until next review

@@ -56,51 +56,55 @@ def get_progress(user_id: int, db: Session = Depends(get_db)):
 
     now = datetime.datetime.utcnow()
     words = db.query(VocabularyWord).filter(VocabularyWord.user_id == user_id).all()
-    sessions = db.query(TrainingSession).filter(TrainingSession.user_id == user_id).all()
+    sessions = db.query(TrainingSession).filter(TrainingSession.user_id == user_id).order_by(
+        TrainingSession.started_at.desc()
+    ).limit(10).all()
 
     total_correct = sum(w.times_correct for w in words)
     total_wrong = sum(w.times_wrong for w in words)
     total_reviews = total_correct + total_wrong
-    accuracy = (total_correct / total_reviews * 100) if total_reviews > 0 else 0.0
+    accuracy = round(total_correct / total_reviews * 100, 1) if total_reviews > 0 else 0.0
 
     words_due = sum(1 for w in words if w.next_review <= now)
+    words_mastered = sum(1 for w in words if w.memory_strength >= 80)
+    words_learning = sum(1 for w in words if 10 <= w.memory_strength < 80)
+    words_new = sum(1 for w in words if w.memory_strength < 10)
 
-    # Per-language stats
-    lang_map: dict[str, dict] = {}
+    # Per source→target language pair stats
+    lang_map: dict[tuple, dict] = {}
     for w in words:
-        key = w.target_language
+        key = (w.source_language, w.target_language)
         if key not in lang_map:
-            lang_map[key] = {"total": 0, "known": 0, "learning": 0, "new": 0, "due": 0}
+            lang_map[key] = {"total": 0, "mastered": 0, "strength_sum": 0}
         lang_map[key]["total"] += 1
-        if w.memory_strength >= 70:
-            lang_map[key]["known"] += 1
-        elif w.memory_strength >= 30:
-            lang_map[key]["learning"] += 1
-        else:
-            lang_map[key]["new"] += 1
-        if w.next_review <= now:
-            lang_map[key]["due"] += 1
+        if w.memory_strength >= 80:
+            lang_map[key]["mastered"] += 1
+        lang_map[key]["strength_sum"] += w.memory_strength
 
-    language_stats = [
+    languages = [
         LanguageStat(
-            language=lang,
+            source_language=src,
+            target_language=tgt,
             total_words=v["total"],
-            known_words=v["known"],
-            learning_words=v["learning"],
-            new_words=v["new"],
-            due_today=v["due"],
+            mastered=v["mastered"],
+            avg_memory_strength=round(v["strength_sum"] / v["total"], 1) if v["total"] > 0 else 0.0,
         )
-        for lang, v in lang_map.items()
+        for (src, tgt), v in lang_map.items()
     ]
 
     return ProgressOut(
-        user=UserOut.model_validate(user),
+        user_id=user_id,
         total_words=len(words),
+        words_mastered=words_mastered,
+        words_learning=words_learning,
+        words_new=words_new,
+        words_due_now=words_due,
+        total_reviews=total_reviews,
+        correct_reviews=total_correct,
+        accuracy_percent=accuracy,
         total_xp=user.xp,
         level=user.level,
         streak_days=user.streak_days,
-        sessions_count=len(sessions),
-        accuracy_rate=round(accuracy, 1),
-        language_stats=language_stats,
-        words_due_today=words_due,
+        languages=languages,
+        recent_sessions=sessions,
     )

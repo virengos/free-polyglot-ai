@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { vocabularyApi } from "@/lib/api";
+import { vocabularyApi, usersApi, aiApi } from "@/lib/api";
 import type { VocabularyWord } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import VocabCard from "@/components/VocabCard";
 import AddWordModal from "@/components/AddWordModal";
 import { LANGUAGES } from "@/types";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, Star, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function VocabularyPage() {
@@ -16,7 +16,10 @@ export default function VocabularyPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterLang, setFilterLang] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editWord, setEditWord] = useState<VocabularyWord | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
 
   const loadWords = useCallback(async () => {
     setLoading(true);
@@ -25,6 +28,7 @@ export default function VocabularyPage() {
         user_id: currentUserId,
         search: search || undefined,
         target_language: filterLang || undefined,
+        favorites_only: favoritesOnly || undefined,
       });
       setWords(data);
     } catch {
@@ -32,7 +36,7 @@ export default function VocabularyPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, search, filterLang]);
+  }, [currentUserId, search, filterLang, favoritesOnly]);
 
   useEffect(() => {
     const t = setTimeout(loadWords, 300);
@@ -50,6 +54,47 @@ export default function VocabularyPage() {
     }
   }
 
+  async function handleToggleFavorite(id: number) {
+    try {
+      const updated = await vocabularyApi.toggleFavorite(id);
+      setWords((prev) => prev.map((w) => (w.id === id ? updated : w)));
+    } catch {
+      toast.error("Could not update favorite");
+    }
+  }
+
+  function handleEdit(word: VocabularyWord) {
+    setEditWord(word);
+    setShowModal(true);
+  }
+
+  function handleModalClose() {
+    setShowModal(false);
+    setEditWord(null);
+  }
+
+  async function handleSuggestWords() {
+    setSuggesting(true);
+    try {
+      const user = await usersApi.get(currentUserId);
+      const sourceLang = user.native_language;
+      const targetLang = filterLang || user.target_languages[0] || "en";
+      const result = await aiApi.suggestWords({
+        user_id: currentUserId,
+        source_language: sourceLang,
+        target_language: targetLang,
+        count: 8,
+      });
+      toast.success(`${result.added} new words added!`);
+      loadWords();
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail ?? "AI service unavailable. Check your MISTRAL_API_KEY.";
+      toast.error(msg);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -58,13 +103,24 @@ export default function VocabularyPage() {
           <h1 className="text-2xl font-bold text-white">Vocabulary</h1>
           <p className="text-slate-400 text-sm mt-0.5">{words.length} entries</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSuggestWords}
+            disabled={suggesting}
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors border border-slate-600"
+            title="Let AI suggest new vocabulary words"
+          >
+            <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
+            {suggesting ? "Generating…" : "AI Suggest"}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -93,6 +149,18 @@ export default function VocabularyPage() {
             ))}
           </select>
         </div>
+        <button
+          onClick={() => setFavoritesOnly((v) => !v)}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+            favoritesOnly
+              ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400"
+              : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+          }`}
+          title="Show favorites only"
+        >
+          <Star className={`h-4 w-4 ${favoritesOnly ? "fill-yellow-400 text-yellow-400" : ""}`} />
+          Favorites
+        </button>
       </div>
 
       {/* Word grid */}
@@ -118,7 +186,7 @@ export default function VocabularyPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {words.map((word) => (
-            <VocabCard key={word.id} word={word} onDelete={handleDelete} />
+            <VocabCard key={word.id} word={word} onDelete={handleDelete} onEdit={handleEdit} onToggleFavorite={handleToggleFavorite} />
           ))}
         </div>
       )}
@@ -126,8 +194,9 @@ export default function VocabularyPage() {
       <AddWordModal
         userId={currentUserId}
         open={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleModalClose}
         onAdded={loadWords}
+        editWord={editWord}
       />
     </div>
   );

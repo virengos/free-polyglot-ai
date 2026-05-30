@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 import asyncio
 
+from database import get_db
+from models import VocabularyWord, User
+from schemas import WordOut
 from services import ai_service
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -23,6 +27,13 @@ class WordInfoRequest(BaseModel):
 class StoryRequest(BaseModel):
     words: list[str]
     language: str
+
+
+class SuggestRequest(BaseModel):
+    user_id: int
+    source_language: str
+    target_language: str
+    count: int = 5
 
 
 @router.post("/sentence")
@@ -82,4 +93,68 @@ def ai_status():
     return {
         "anthropic": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
         "openai": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "mistral": bool(os.getenv("MISTRAL_API_KEY", "").strip()),
     }
+
+
+@router.post("/suggest")
+async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depends(get_db)):
+    """Ask the AI to suggest and auto-save new vocabulary words for a language pair."""
+    user = db.get(User, payload.user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    existing = (
+        db.query(VocabularyWord)
+        .filter(
+            VocabularyWord.user_id == payload.user_id,
+            VocabularyWord.source_language == payload.source_language,
+            VocabularyWord.target_language == payload.target_language,
+        )
+        .order_by(VocabularyWord.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    existing_words = [{"word": w.word, "translation": w.translation} for w in existing]
+    existing_set = {w.word.lower() for w in existing}
+
+    suggestions = await ai_service.suggest_vocabulary(
+        existing_words,
+        payload.source_language,
+        payload.target_language,
+        payload.count,
+    )
+
+    if suggestions is None:
+        raise HTTPException(
+            503,
+            "AI service unavailable. Set MISTRAL_API_KEY in backend/.env to enable this feature.",
+        )
+
+    added = []
+    for s in suggestions:
+        if not isinstance(s, dict):
+            continue
+        word_text = s.get("word", "").strip()
+        if not word_text or word_text.lower() in existing_set:
+            continue
+        word = VocabularyWord(
+            user_id=payload.user_id,
+            source_language=payload.source_language,
+            target_language=payload.target_language,
+            word=word_text,
+            translation=s.get("translation", "").strip(),
+            part_of_speech=s.get("part_of_speech") or None,
+            example_sentence=s.get("example_sentence") or None,
+            example_translation=s.get("example_translation") or None,
+        )
+        db.add(word)
+        existing_set.add(word_text.lower())
+        added.append(word)
+
+    db.commit()
+    for w in added:
+        db.refresh(w)
+
+    return {"added": len(added), "words": [WordOut.model_validate(w) for w in added]}

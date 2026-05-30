@@ -17,6 +17,7 @@ def list_words(
     source_language: Optional[str] = None,
     target_language: Optional[str] = None,
     search: Optional[str] = None,
+    favorites_only: bool = False,
     db: Session = Depends(get_db),
 ):
     q = db.query(VocabularyWord).filter(VocabularyWord.user_id == user_id)
@@ -29,6 +30,8 @@ def list_words(
         q = q.filter(
             VocabularyWord.word.ilike(term) | VocabularyWord.translation.ilike(term)
         )
+    if favorites_only:
+        q = q.filter(VocabularyWord.is_favorite == True)
     return q.order_by(VocabularyWord.created_at.desc()).all()
 
 
@@ -71,6 +74,17 @@ def delete_word(word_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Word not found")
     db.delete(word)
     db.commit()
+
+
+@router.patch("/{word_id}/favorite", response_model=WordOut)
+def toggle_favorite(word_id: int, db: Session = Depends(get_db)):
+    word = db.get(VocabularyWord, word_id)
+    if not word:
+        raise HTTPException(404, "Word not found")
+    word.is_favorite = not word.is_favorite
+    db.commit()
+    db.refresh(word)
+    return word
 
 
 @router.get("/{word_id}/distractors", response_model=List[str])

@@ -3,16 +3,17 @@
 import { cn, memoryColor, memoryLabel } from "@/lib/utils";
 import { LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import type { VocabularyWord } from "@/types";
-import { Pencil, Trash2, Volume2 } from "lucide-react";
+import { Pencil, Trash2, Volume2, Star } from "lucide-react";
 import { speak } from "@/lib/tts";
 
 interface VocabCardProps {
   word: VocabularyWord;
   onEdit?: (word: VocabularyWord) => void;
   onDelete?: (id: number) => void;
+  onToggleFavorite?: (id: number) => void;
 }
 
-export default function VocabCard({ word, onEdit, onDelete }: VocabCardProps) {
+export default function VocabCard({ word, onEdit, onDelete, onToggleFavorite }: VocabCardProps) {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-3 hover:border-slate-600 transition-colors">
       {/* Header */}
@@ -47,6 +48,20 @@ export default function VocabCard({ word, onEdit, onDelete }: VocabCardProps) {
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
+          {onToggleFavorite && (
+            <button
+              onClick={() => onToggleFavorite(word.id)}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                word.is_favorite
+                  ? "text-yellow-400 hover:text-yellow-300 hover:bg-slate-700"
+                  : "text-slate-500 hover:text-yellow-400 hover:bg-slate-700"
+              )}
+              title={word.is_favorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Star className={cn("h-3.5 w-3.5", word.is_favorite && "fill-yellow-400")} />
+            </button>
+          )}
           {onEdit && (
             <button
               onClick={() => onEdit(word)}

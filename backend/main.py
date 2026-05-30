@@ -25,6 +25,15 @@ def _run_migrations():
         for col, sql in migrations:
             if col not in existing_cols:
                 conn.execute(text(sql))
+
+        word_cols = {c["name"] for c in inspector.get_columns("vocabulary_words")}
+        word_migrations = [
+            ("is_favorite", "ALTER TABLE vocabulary_words ADD COLUMN is_favorite BOOLEAN DEFAULT 0"),
+        ]
+        for col, sql in word_migrations:
+            if col not in word_cols:
+                conn.execute(text(sql))
+
         conn.commit()
 
 
