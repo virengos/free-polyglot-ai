@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Polyglot AI – Vokabeltrainer",
-  description: "KI-gestütztes Vokabeltraining für Polyglotten",
+  title: "Polyglot AI – Vocabulary Trainer",
+  description: "AI-powered vocabulary training for polyglots",
 };
 
 export default function RootLayout({

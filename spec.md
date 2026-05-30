@@ -1,34 +1,34 @@
 
 Polyglot AI Vocabulary Trainer
-Produkt-Spezifikation v1.0
+Product Specification v1.0
 Vision
-Entwicklung eines KI-gestützten Sprachlern-Systems für Polyglotten, das mehrere Fremdsprachen
-parallel trainiert und sich kontinuierlich an den individuellen Lernfortschritt anpasst.
-Das System kombiniert:
-Vokabeltraining
-Kontextlernen
-KI-generierte Inhalte
-Gedächtnisoptimierung
-Motivation durch Gamification
-Kognitive Abwechslung zur Vermeidung von Ermüdung
-1. Zielgruppe
-Primäre Zielgruppe
-Sprachbegeisterte
-Polyglotten
-Berufstätige mit internationalem Umfeld
-Auswanderer
-Studenten
-Unterstützte Sprachen (MVP)
-Englisch
-Spanisch
-Französisch
-Schwedisch
-Polnisch
-Später beliebig erweiterbar.
-2. Lernphilosophie
-Das System soll nicht nur Vokabeln abfragen, sondern langfristige Sprachkompetenz aufbauen.
-Jede Vokabel wird trainiert durch:
-Bedeutung
+Development of an AI-powered language learning system for polyglots that trains multiple foreign
+languages in parallel and continuously adapts to the individual learner's progress.
+The system combines:
+Vocabulary training
+Contextual learning
+AI-generated content
+Memory optimization
+Motivation through gamification
+Cognitive variety to prevent fatigue
+1. Target Audience
+Primary target group
+Language enthusiasts
+Polyglots
+Professionals in international environments
+Expatriates
+Students
+Supported languages (MVP)
+English
+Spanish
+French
+Swedish
+Polish
+Expandable to any language later.
+2. Learning Philosophy
+The system should not only quiz vocabulary, but build long-term language competence.
+Each word is trained through:
+Meaning
 •
 •
 •
@@ -47,37 +47,37 @@ Bedeutung
 •
 1.
 1
-Aussprache
-Bild
-Beispielsatz
-Synonyme
-Antonyme
-Kontext
-Wiederholung
-3. Adaptive KI
-Persönliches Sprachmodell
-Für jeden Nutzer wird ein Lernprofil aufgebaut.
-Erfasst werden:
-bekannte Wörter
-unsichere Wörter
-schwierige Wörter
-Lernzeit
-Konzentrationsphasen
-bevorzugte Übungsformen
-KI entscheidet dynamisch
-Welche Vokabel erscheint?
-In welcher Sprache?
-In welchem Schwierigkeitsgrad?
-In welchem Kontext?
-4. Sprachen parallel lernen
-Gemischter Modus
-Beispiel:
-Quelle Ziel
-Deutsch Englisch
-Deutsch Spanisch
-Englisch Französisch
-Spanisch Schwedisch
-Französisch Polnisch
+Pronunciation
+Image
+Example sentence
+Synonyms
+Antonyms
+Context
+Repetition
+3. Adaptive AI
+Personal Language Model
+A learning profile is built for each user.
+Tracked data includes:
+known words
+uncertain words
+difficult words
+learning time
+concentration phases
+preferred exercise types
+AI decides dynamically
+Which word appears?
+In which language?
+At which difficulty level?
+In which context?
+4. Parallel Language Learning
+Mixed Mode
+Example:
+Source Target
+German English
+German Spanish
+English French
+Spanish Swedish
+French Polish
 2.
 3.
 4.
@@ -96,28 +96,28 @@ Französisch Polnisch
 •
 •
 2
-Der Nutzer lernt Verbindungen zwischen mehreren Sprachräumen.
-5. Trainingsarten
-Klassische Karteikarten
-ähnlich Quizlet
-Vorderseite
-Rückseite
-Selbstbewertung
+The user learns connections between multiple language spaces.
+5. Training Types
+Classic Flashcards
+similar to Quizlet
+Front side
+Back side
+Self-assessment
 Multiple Choice
-Eine richtige Antwort
-Schreibmodus
-Antwort eintippen
-Satzergänzung
-Lückentexte
-Hörverständnis
-KI spricht Wort oder Satz vor.
-Nutzer schreibt mit.
-Aussprachetraining
-Speech-to-Text Bewertung
-Feedback zu:
-Aussprache
-Betonung
-Flüssigkeit
+One correct answer
+Write mode
+Type the answer
+Sentence completion
+Fill-in-the-blank
+Listening comprehension
+AI reads a word or sentence aloud.
+User writes along.
+Pronunciation training
+Speech-to-Text evaluation
+Feedback on:
+Pronunciation
+Stress
+Fluency
 •
 •
 •
@@ -125,29 +125,28 @@ Flüssigkeit
 •
 •
 3
-Übersetzungsmodus
-Beliebige Sprachkombinationen.
-Beispiele:
-Deutsch → Spanisch
-Englisch → Französisch
-Schwedisch → Polnisch
-6. KI-generierte Inhalte
-Bildgenerierung
-Für jede neue Vokabel kann automatisch erzeugt werden:
-realistisches Bild
-Illustration
-Cartoon
-Kontextszene
-Beispielsätze
-Die KI erzeugt:
-einfache Sätze
-Alltagssprache
-Business-Sprache
-technische Sprache
-je nach Nutzerprofil.
-Kontextgeschichten
-Mehrere Vokabeln werden in kurze Geschichten eingebettet.
-•
+Translation mode
+Any language combination.
+Examples:
+German → Spanish
+English → French
+Swedish → Polish
+6. AI-generated Content
+Image generation
+For each new word, the following can be automatically generated:
+realistic image
+illustration
+cartoon
+context scene
+Example sentences
+The AI generates:
+simple sentences
+everyday language
+business language
+technical language
+based on user profile.
+Context stories
+Multiple words are embedded in short stories.
 •
 •
 •
@@ -159,40 +158,35 @@ Mehrere Vokabeln werden in kurze Geschichten eingebettet.
 •
 •
 4
-7. Gedächtnisoptimierung
+7. Memory Optimization
 Spaced Repetition
-Jedes Wort erhält:
-Erinnerungswahrscheinlichkeit
-Vergessenswahrscheinlichkeit
-Wiederholungsintervall
-Intervallsteuerung:
-Minuten
-Stunden
-Tage
-Wochen
-Monate
+Each word receives:
+Recall probability
+Forgetting probability
+Repetition interval
+Interval control:
+Minutes
+Hours
+Days
+Weeks
+Months
 Memory Strength Score
 0–100
-Berechnet aus:
-Trefferquote
-Antwortzeit
-Anzahl Wiederholungen
-Fehlversuchen
-8. Konzentrationsmanagement
-Um mentale Ermüdung zu reduzieren, unterbricht die KI automatisch Lernsessions.
-Mögliche Unterbrechungen
-Mathematik
-Kurze Aufgaben:
-Kopfrechnen
-Prozentrechnung
-Logik
-Dauer:
-30–90 Sekunden
-•
-•
-•
-•
-•
+Calculated from:
+Hit rate
+Response time
+Number of repetitions
+Failed attempts
+8. Concentration Management
+To reduce mental fatigue, the AI automatically interrupts learning sessions.
+Possible interruptions
+Mathematics
+Short tasks:
+Mental arithmetic
+Percentage calculation
+Logic
+Duration:
+30–90 seconds
 •
 •
 •
@@ -205,32 +199,32 @@ Dauer:
 •
 5
 Mini-Games
-Beispiele:
+Examples:
 Memory
-Wortsuche
+Word search
 Sudoku Light
-Mustererkennung
-Reaktionsspiele
-Musik
-Kurze Musikpause
-Möglichkeiten:
+Pattern recognition
+Reaction games
+Music
+Short music break
+Options:
 Instrumental
-LoFi
-Klassik
-Fokusmusik
-Länge:
-1–3 Minuten
+Lo-Fi
+Classical
+Focus music
+Length:
+1–3 minutes
 9. Motivation
-XP-System
-Für jede Aktivität gibt es Erfahrungspunkte.
+XP System
+Experience points are awarded for each activity.
 Streaks
-Tagesstreak
-Wochenstreak
-Monatsstreak
+Daily streak
+Weekly streak
+Monthly streak
 Achievements
-Beispiele:
-100 Wörter gelernt
-1000 Wiederholungen
+Examples:
+100 words learned
+1000 repetitions
 •
 •
 •
@@ -246,22 +240,22 @@ Beispiele:
 •
 •
 6
-30 Tage aktiv
-10. Analyse-Dashboard
-Anzeige von:
-Wörter gelernt
-Wörter aktiv
-Wörter unsicher
-Lernzeit
-Erfolgsquote
-Sprachverteilung
-Lernprognose
-KI berechnet:
-Zeit bis B1
-Zeit bis B2
-Zeit bis C1
-für jede Sprache.
-11. Technische Architektur
+30 days active
+10. Analytics Dashboard
+Displays:
+Words learned
+Words active
+Words uncertain
+Learning time
+Success rate
+Language distribution
+Learning forecast
+AI calculates:
+Time to B1
+Time to B2
+Time to C1
+for each language.
+11. Technical Architecture
 Frontend
 React
 Next.js
@@ -270,7 +264,7 @@ Tailwind
 Backend
 Python
 FastAPI
-Datenbank
+Database
 PostgreSQL
 •
 •
@@ -288,33 +282,32 @@ PostgreSQL
 •
 •
 •
-•
 7
-KI-Komponenten
+AI Components
 LLM
 Claude Opus
-Aufgaben:
-Beispielsätze
-Erklärungen
-Personalisierung
-Fehleranalyse
-Bild-KI
+Tasks:
+Example sentences
+Explanations
+Personalization
+Error analysis
+Image AI
 OpenAI Image Generation
-Aufgaben:
-Vokabelbilder
-Szenen
-Illustrationen
-Sprach-KI
+Tasks:
+Vocabulary images
+Scenes
+Illustrations
+Speech AI
 Speech-to-Text
 Text-to-Speech
-12. Langfristige Vision
-Das System entwickelt sich zu einem persönlichen Sprachcoach.
-Die KI kennt:
-Sprachlevel
-Interessen
-Lernverhalten
+12. Long-term Vision
+The system evolves into a personal language coach.
+The AI knows:
+Language level
+Interests
+Learning behavior
 Motivation
-Schwächen
-und erstellt täglich einen individuell optimierten Lernplan.
-Ziel ist es, mehrere Fremdsprachen gleichzeitig mit maximaler Effizienz und minimalem Zeitaufwand zu
-beherrschen.
+Weaknesses
+and creates a daily, individually optimized learning plan.
+The goal is to master multiple foreign languages simultaneously with maximum efficiency and
+minimum time investment.

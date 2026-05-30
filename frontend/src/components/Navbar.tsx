@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/training", icon: Dumbbell, label: "Training" },
-  { href: "/vocabulary", icon: BookOpen, label: "Vokabeln" },
+  { href: "/vocabulary", icon: BookOpen, label: "Vocabulary" },
 ];
 
 export default function Navbar() {
@@ -21,7 +21,7 @@ export default function Navbar() {
         <span className="text-2xl">🌍</span>
         <div>
           <h1 className="font-bold text-white text-sm leading-tight">Polyglot AI</h1>
-          <p className="text-xs text-slate-400">Vokabeltrainer</p>
+          <p className="text-xs text-slate-400">Vocabulary Trainer</p>
         </div>
       </div>
 

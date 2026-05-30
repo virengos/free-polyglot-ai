@@ -1,17 +1,21 @@
-[-] Aktualsiere die Dokumentation, erstelle eine Commit-Nachricht und pushe die Änderungen in das Repository
+[-] Update documentation, create a commit message and push changes to the repository
 
-[x] Start der Applikation über ./start.sh Skript
+[x] Launch application via ./start.sh script
 
-[-] User-Kenntnisse in allen Sprachen, sowie Präferenzen was er lernen möchte, sollen in einem Menüpunkt erfasst werden
+[x] Complete software and documentation in English
 
-[-] Kontextbezogene Beispielsätze wie Reverso oder ähnliche Apps
+[x] Implement MIT license with attribution to Damian Berghof as the creator and developer of the first version
 
-[-] Lernmechanismus für Vokabeln ähnlich wie bei ANKI App
+[-] Capture user proficiency in all languages and preferences for what they want to learn in a dedicated settings menu
 
-[-] Zugriff auf MIstral AI über privaten Key in der Datei .env
+[-] Context-sensitive example sentences like Reverso or similar apps
 
-[-] Sprachausgabe soll verbessert werden auf das Niveau wie bei Quizzlet oder Google Translate. Anfangs eine angenehme weibliche Stimme auswählen.
+[-] Vocabulary learning mechanism similar to the ANKI app
 
-[-] Beispielsätze sollen auch vorlesbar sein
+[-] Access to Mistral AI via private key in the .env file
 
-[-] Passende Spiele zwischendurch um andere Gehirnhälfte zu trainieren und Lernprozess zu beschleunigen
+[-] Improve text-to-speech to the level of Quizlet or Google Translate. Start with a pleasant female voice.
+
+[-] Example sentences should also be speakable
+
+[-] Suitable mini-games interspersed to train the other brain hemisphere and accelerate the learning process

@@ -47,7 +47,7 @@ export default function MultipleChoice({ word, onResult }: MultipleChoiceProps) 
       {/* Prompt */}
       <div className="text-center">
         <p className="text-slate-400 text-sm mb-2">
-          {LANGUAGE_FLAGS[word.source_language]} Wie lautet die Übersetzung von
+          {LANGUAGE_FLAGS[word.source_language]} What is the translation of
         </p>
         <p className="text-4xl font-bold text-white">{word.word}</p>
         {word.part_of_speech && (
@@ -62,7 +62,7 @@ export default function MultipleChoice({ word, onResult }: MultipleChoiceProps) 
 
       {/* Options */}
       {loading ? (
-        <div className="text-slate-500 text-sm">Lade Optionen…</div>
+        <div className="text-slate-500 text-sm">Loading options…</div>
       ) : (
         <div className="grid gap-3 w-full">
           {options.map((opt) => (
@@ -100,8 +100,8 @@ export default function MultipleChoice({ word, onResult }: MultipleChoiceProps) 
             )}
           >
             {selected === word.translation
-              ? "✓ Richtig!"
-              : `✗ Richtige Antwort: ${word.translation}`}
+              ? "✓ Correct!"
+              : `✗ Correct answer: ${word.translation}`}
           </motion.div>
         )}
       </AnimatePresence>

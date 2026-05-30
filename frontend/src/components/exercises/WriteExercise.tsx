@@ -49,7 +49,7 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
       {/* Prompt */}
       <div className="text-center">
         <p className="text-slate-400 text-sm mb-2">
-          {LANGUAGE_FLAGS[word.source_language]} Schreibe die Übersetzung auf{" "}
+          {LANGUAGE_FLAGS[word.source_language]} Write the translation in{" "}
           {LANGUAGE_FLAGS[word.target_language]}
         </p>
         <div className="flex items-center justify-center gap-3">
@@ -64,7 +64,7 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
         </div>
         {word.example_sentence && (
           <p className="text-slate-500 text-sm mt-3 italic">
-            Kontext: „{word.example_sentence}"
+            Context: „{word.example_sentence}“
           </p>
         )}
       </div>
@@ -76,7 +76,7 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={submitted}
-          placeholder="Deine Übersetzung…"
+          placeholder="Your translation…"
           className={cn(
             "w-full px-5 py-4 rounded-xl border bg-slate-800 text-white placeholder:text-slate-500 outline-none transition-colors text-lg",
             !submitted && "border-slate-700 focus:border-indigo-500",
@@ -90,7 +90,7 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-40"
             disabled={!input.trim()}
           >
-            Prüfen
+            Check
           </button>
         )}
       </form>
@@ -106,16 +106,16 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
             {correct ? (
               <div className="flex items-center gap-2 text-emerald-400 font-semibold">
                 <CheckCircle className="h-5 w-5" />
-                Richtig!
+                Correct!
               </div>
             ) : (
               <div className="flex flex-col items-center gap-1">
                 <div className="flex items-center gap-2 text-red-400 font-semibold">
                   <XCircle className="h-5 w-5" />
-                  Falsch
+                  Wrong
                 </div>
                 <p className="text-slate-300 text-sm">
-                  Richtige Antwort:{" "}
+                  Correct answer:{" "}
                   <span className="font-bold text-white">{word.translation}</span>
                 </p>
               </div>

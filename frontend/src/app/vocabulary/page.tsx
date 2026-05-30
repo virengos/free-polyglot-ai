@@ -28,7 +28,7 @@ export default function VocabularyPage() {
       });
       setWords(data);
     } catch {
-      toast.error("Fehler beim Laden der Vokabeln");
+      toast.error("Error loading vocabulary");
     } finally {
       setLoading(false);
     }
@@ -40,13 +40,13 @@ export default function VocabularyPage() {
   }, [loadWords]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Vokabel wirklich löschen?")) return;
+    if (!confirm("Really delete this word?")) return;
     try {
       await vocabularyApi.delete(id);
-      toast.success("Gelöscht");
+      toast.success("Deleted");
       loadWords();
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error("Error deleting");
     }
   }
 
@@ -55,15 +55,15 @@ export default function VocabularyPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Vokabeln</h1>
-          <p className="text-slate-400 text-sm mt-0.5">{words.length} Einträge</p>
+          <h1 className="text-2xl font-bold text-white">Vocabulary</h1>
+          <p className="text-slate-400 text-sm mt-0.5">{words.length} entries</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
           className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Hinzufügen
+          Add
         </button>
       </div>
 
@@ -74,7 +74,7 @@ export default function VocabularyPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Suchen…"
+            placeholder="Search…"
             className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
           />
         </div>
@@ -85,7 +85,7 @@ export default function VocabularyPage() {
             onChange={(e) => setFilterLang(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
           >
-            <option value="">Alle Sprachen</option>
+            <option value="">All languages</option>
             {Object.entries(LANGUAGES).map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
@@ -107,12 +107,12 @@ export default function VocabularyPage() {
         </div>
       ) : words.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-slate-400 mb-2">Keine Vokabeln gefunden</p>
+          <p className="text-slate-400 mb-2">No vocabulary words found</p>
           <button
             onClick={() => setShowModal(true)}
             className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
           >
-            Erste Vokabel hinzufügen →
+            Add your first word →
           </button>
         </div>
       ) : (

@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Polyglot AI Vocabulary Trainer",
-    description="KI-gestütztes Vokabeltraining für Polyglotten",
+    description="AI-powered vocabulary training for polyglots",
     version="1.0.0",
     lifespan=lifespan,
 )

@@ -45,7 +45,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
         example_sentence: form.example_sentence.trim() || undefined,
         tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
       });
-      toast.success("Vokabel hinzugefügt!");
+      toast.success("Word added!");
       setForm({
         source_language: "de",
         target_language: "en",
@@ -58,7 +58,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
       onAdded();
       onClose();
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error("Error saving");
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-white">Vokabel hinzufügen</h2>
+              <h2 className="text-lg font-bold text-white">Add Word</h2>
               <button
                 onClick={onClose}
                 className="text-slate-500 hover:text-white transition-colors"
@@ -95,7 +95,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
               {/* Language pair */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Quellsprache</label>
+                  <label className="text-xs text-slate-400 mb-1 block">Source language</label>
                   <select
                     value={form.source_language}
                     onChange={(e) => update("source_language", e.target.value)}
@@ -109,7 +109,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Zielsprache</label>
+                  <label className="text-xs text-slate-400 mb-1 block">Target language</label>
                   <select
                     value={form.target_language}
                     onChange={(e) => update("target_language", e.target.value)}
@@ -126,33 +126,33 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
 
               {/* Word + Translation */}
               <Field
-                label="Wort"
+                label="Word"
                 value={form.word}
-                placeholder="z.B. Haus"
+                placeholder="e.g. Haus"
                 onChange={(v) => update("word", v)}
               />
               <Field
-                label="Übersetzung"
+                label="Translation"
                 value={form.translation}
-                placeholder="z.B. house"
+                placeholder="e.g. house"
                 onChange={(v) => update("translation", v)}
               />
               <Field
-                label="Wortart (optional)"
+                label="Part of speech (optional)"
                 value={form.part_of_speech}
-                placeholder="z.B. Nomen, Verb"
+                placeholder="e.g. noun, verb"
                 onChange={(v) => update("part_of_speech", v)}
               />
               <Field
-                label="Beispielsatz (optional)"
+                label="Example sentence (optional)"
                 value={form.example_sentence}
-                placeholder="z.B. Das Haus ist groß."
+                placeholder="e.g. Das Haus ist groß."
                 onChange={(v) => update("example_sentence", v)}
               />
               <Field
-                label="Tags (Komma-getrennt, optional)"
+                label="Tags (comma-separated, optional)"
                 value={form.tags}
-                placeholder="z.B. Alltag, Wohnen"
+                placeholder="e.g. everyday, home"
                 onChange={(v) => update("tags", v)}
               />
 
@@ -162,7 +162,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded }: AddWord
                 className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Speichern
+                Save
               </button>
             </form>
           </motion.div>

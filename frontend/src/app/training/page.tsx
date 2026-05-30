@@ -41,7 +41,7 @@ export default function TrainingPage() {
       if (words.length > 0) setExerciseType(pickExerciseType(words[0]));
     } catch (err) {
       console.error("Failed to load training queue", err);
-      toast.error("Konnte Trainingswarteschlange nicht laden");
+      toast.error("Could not load training queue");
     } finally {
       setLoading(false);
     }
@@ -68,7 +68,7 @@ export default function TrainingPage() {
       advance();
     } catch (err) {
       console.error("Review submission failed", err);
-      toast.error("Bewertung konnte nicht gespeichert werden");
+      toast.error("Rating could not be saved");
       advance();
     }
   }
@@ -90,7 +90,7 @@ export default function TrainingPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-slate-400 animate-pulse">Lade Training…</div>
+        <div className="text-slate-400 animate-pulse">Loading training…</div>
       </div>
     );
   }
@@ -99,15 +99,15 @@ export default function TrainingPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
         <Trophy className="h-16 w-16 text-yellow-400" />
-        <h2 className="text-2xl font-bold text-white">Alles wiederholt!</h2>
+        <h2 className="text-2xl font-bold text-white">All done!</h2>
         <p className="text-slate-400 text-center">
-          Keine fälligen Vokabeln. Füge neue hinzu oder komm später wieder.
+          No vocabulary words due. Add new ones or come back later.
         </p>
         <a
           href="/vocabulary"
           className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
         >
-          Vokabeln verwalten
+          Manage Vocabulary
         </a>
       </div>
     );
@@ -119,20 +119,20 @@ export default function TrainingPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
         <Trophy className="h-16 w-16 text-yellow-400" />
-        <h2 className="text-2xl font-bold text-white">Session abgeschlossen!</h2>
+        <h2 className="text-2xl font-bold text-white">Session complete!</h2>
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm">
           <div className="flex justify-around text-center">
             <div>
               <p className="text-3xl font-bold text-emerald-400">{correct}</p>
-              <p className="text-xs text-slate-400">Richtig</p>
+              <p className="text-xs text-slate-400">Correct</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-red-400">{wrong}</p>
-              <p className="text-xs text-slate-400">Falsch</p>
+              <p className="text-xs text-slate-400">Wrong</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-white">{accuracy}%</p>
-              <p className="text-xs text-slate-400">Genauigkeit</p>
+              <p className="text-xs text-slate-400">Accuracy</p>
             </div>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function TrainingPage() {
             onClick={loadQueue}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            Nochmal trainieren
+            Train again
           </button>
           <a
             href="/"
@@ -156,10 +156,10 @@ export default function TrainingPage() {
 
   const progress = ((index) / queue.length) * 100;
   const exerciseLabel: Record<ExerciseType, string> = {
-    flashcard: "Karteikarte",
+    flashcard: "Flashcard",
     multiple_choice: "Multiple Choice",
-    write: "Schreibmodus",
-    fill: "Lückentext",
+    write: "Write mode",
+    fill: "Fill in",
   };
 
   return (

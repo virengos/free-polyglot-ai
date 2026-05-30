@@ -13,11 +13,11 @@ interface FlashcardProps {
 }
 
 const QUALITY_BUTTONS = [
-  { q: 1, label: "Falsch", color: "bg-red-600 hover:bg-red-500" },
-  { q: 2, label: "Schwierig", color: "bg-orange-600 hover:bg-orange-500" },
+  { q: 1, label: "Wrong", color: "bg-red-600 hover:bg-red-500" },
+  { q: 2, label: "Hard", color: "bg-orange-600 hover:bg-orange-500" },
   { q: 3, label: "Okay", color: "bg-yellow-600 hover:bg-yellow-500" },
-  { q: 4, label: "Gut", color: "bg-blue-600 hover:bg-blue-500" },
-  { q: 5, label: "Perfekt", color: "bg-emerald-600 hover:bg-emerald-500" },
+  { q: 4, label: "Good", color: "bg-blue-600 hover:bg-blue-500" },
+  { q: 5, label: "Perfect", color: "bg-emerald-600 hover:bg-emerald-500" },
 ];
 
 export default function Flashcard({ word, onRate }: FlashcardProps) {
@@ -68,11 +68,11 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
                   speak(word.word, word.source_language);
                 }}
                 className="text-slate-400 hover:text-white transition-colors"
-                title="Aussprache"
+                title="Pronunciation"
               >
                 <Volume2 className="h-5 w-5" />
               </button>
-              <span className="text-slate-500 text-xs">Tippe zum Umdrehen</span>
+              <span className="text-slate-500 text-xs">Tap to flip</span>
             </div>
           </div>
 
@@ -98,7 +98,7 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
                 speak(word.translation, word.target_language);
               }}
               className="text-indigo-300 hover:text-white transition-colors mt-2"
-              title="Aussprache"
+              title="Pronunciation"
             >
               <Volume2 className="h-5 w-5" />
             </button>
@@ -143,7 +143,7 @@ export default function Flashcard({ word, onRate }: FlashcardProps) {
           className="text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 text-xs"
         >
           <RotateCcw className="h-3 w-3" />
-          Nochmal ansehen
+          View again
         </button>
       )}
     </div>

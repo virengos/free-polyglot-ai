@@ -1,64 +1,64 @@
-# 🌍 Polyglot AI – KI-Vokabeltrainer
+# 🌍 Polyglot AI – AI Vocabulary Trainer
 
-Ein adaptiver, KI-gestützter Vokabeltrainer für Polyglotten. Trainiere mehrere Sprachen parallel mit Spaced-Repetition, KI-generierten Inhalten und verschiedenen Übungsformaten.
+An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languages in parallel with spaced repetition, AI-generated content, and various exercise formats.
 
 ## Features
 
-- **Spaced Repetition (SM-2)**: Intelligente Wiederholungsplanung mit Gedächtnisstärkung 0–100
-- **3 Übungsformate**: Karteikarten (3D-Flip), Multiple Choice, Schreibmodus
-- **6 Sprachen**: Deutsch, Englisch, Spanisch, Französisch, Schwedisch, Polnisch
-- **KI-Inhalte**: Beispielsätze & Worterklärungen via **Mistral AI** (primär) oder Anthropic Claude (Fallback)
-- **Dashboard**: XP, Streak, Lernfortschritt, Sprachstatistiken
-- **Text-to-Speech**: Browser-native Aussprache für jede Vokabel
-- **Demo-Daten**: Automatisches Seeding beim ersten Start
+- **Spaced Repetition (SM-2)**: Intelligent review scheduling with memory strength 0–100
+- **3 Exercise formats**: Flashcards (3D flip), Multiple Choice, Write mode
+- **6 Languages**: German, English, Spanish, French, Swedish, Polish
+- **AI content**: Example sentences & word explanations via **Mistral AI** (primary) or Anthropic Claude (fallback)
+- **Dashboard**: XP, streak, learning progress, language statistics
+- **Text-to-Speech**: Browser-native pronunciation for every word
+- **Demo data**: Automatic seeding on first launch
 
 ## Tech Stack
 
-| Schicht | Technologie |
-|---------|-------------|
+| Layer | Technology |
+|-------|------------|
 | Frontend | Next.js 16, TypeScript, Tailwind CSS, Framer Motion, Zustand |
 | Backend | FastAPI (Python 3.12), SQLAlchemy ORM |
-| Datenbank | SQLite (Standard) / PostgreSQL |
-| KI | Mistral AI · Anthropic Claude (optional, per API-Key) |
+| Database | SQLite (default) / PostgreSQL |
+| AI | Mistral AI · Anthropic Claude (optional, via API key) |
 | DevOps | Docker Compose, start.sh |
 
-## Schnellstart
+## Quick Start
 
-### Einfachster Weg – start.sh
+### Easiest way – start.sh
 
 ```bash
 ./start.sh
 ```
 
-Das Skript richtet automatisch ein:
-- Python Virtual Environment + pip-Abhängigkeiten
-- `backend/.env` (falls nicht vorhanden)
+The script automatically sets up:
+- Python Virtual Environment + pip dependencies
+- `backend/.env` (if not present)
 - `frontend/.env.local`
-- Startet Backend (Port 8000) und Frontend (Port 3000)
+- Starts backend (port 8000) and frontend (port 3000)
 
-> Ports anpassen: `BACKEND_PORT=8080 FRONTEND_PORT=3001 ./start.sh`
+> Adjust ports: `BACKEND_PORT=8080 FRONTEND_PORT=3001 ./start.sh`
 
 ---
 
-### Manueller Start
+### Manual start
 
-#### Voraussetzungen
+#### Prerequisites
 
 - Python 3.11+
 - Node.js 20+
 
-#### 1. Backend starten
+#### 1. Start backend
 
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# .env Datei anlegen (wird von start.sh automatisch erstellt)
+# Create .env file (start.sh does this automatically)
 cat > .env << 'EOF'
 DATABASE_URL=sqlite:///./polyglot.db
 FRONTEND_URL=http://localhost:3000
-# Optional KI:
+# Optional AI:
 # MISTRAL_API_KEY=...
 # ANTHROPIC_API_KEY=sk-ant-...
 EOF
@@ -66,10 +66,10 @@ EOF
 uvicorn main:app --reload
 ```
 
-Backend läuft auf http://localhost:8000  
-API-Docs: http://localhost:8000/docs
+Backend running at http://localhost:8000  
+API docs: http://localhost:8000/docs
 
-#### 2. Frontend starten
+#### 2. Start frontend
 
 ```bash
 cd frontend
@@ -77,89 +77,89 @@ npm install
 npm run dev
 ```
 
-Frontend läuft auf http://localhost:3000
+Frontend running at http://localhost:3000
 
-### Mit Docker Compose
+### With Docker Compose
 
 ```bash
 docker compose up -d
 ```
 
-Alle Services starten automatisch. Demo-Daten werden beim ersten Start geladen.
+All services start automatically. Demo data is loaded on first launch.
 
-## Umgebungsvariablen
+## Environment Variables
 
 ### Backend (`backend/.env`)
 
-| Variable | Beschreibung | Standard |
-|----------|-------------|---------|
-| `DATABASE_URL` | SQLite oder PostgreSQL-URL | `sqlite:///./polyglot.db` |
-| `MISTRAL_API_KEY` | Mistral AI API-Key für KI-Features | *(optional)* |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API-Key | *(optional)* |
-| `FRONTEND_URL` | CORS-Origin des Frontends | `http://localhost:3000` |
+| Variable | Description | Default |
+|----------|-------------|--------|
+| `DATABASE_URL` | SQLite or PostgreSQL URL | `sqlite:///./polyglot.db` |
+| `MISTRAL_API_KEY` | Mistral AI API key for AI features | *(optional)* |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key | *(optional)* |
+| `FRONTEND_URL` | CORS origin of the frontend | `http://localhost:3000` |
 
-> Wird `MISTRAL_API_KEY` gesetzt, werden KI-Endpunkte (`/api/ai/*`) aktiviert.  
-> Die Datei `backend/.env` wird **nicht** ins Repository eingecheckt (`.gitignore`).
+> When `MISTRAL_API_KEY` is set, the AI endpoints (`/api/ai/*`) are activated.  
+> The file `backend/.env` is **not** committed to the repository (`.gitignore`).
 
 ### Frontend (`frontend/.env.local`)
 
-| Variable | Beschreibung | Standard |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_API_URL` | URL des Backends | `http://localhost:8000` |
+| Variable | Description | Default |
+|----------|-------------|--------|
+| `NEXT_PUBLIC_API_URL` | URL of the backend | `http://localhost:8000` |
 
-## Projektstruktur
+## Project Structure
 
 ```
 free-polyglot-ai/
 ├── backend/
-│   ├── main.py              # FastAPI App, CORS, Lifespan
+│   ├── main.py              # FastAPI app, CORS, lifespan
 │   ├── models.py            # SQLAlchemy ORM (User, Word, Session)
-│   ├── schemas.py           # Pydantic Schemas
-│   ├── database.py          # DB-Verbindung
-│   ├── seed_data.py         # Demo-Vokabeln
+│   ├── schemas.py           # Pydantic schemas
+│   ├── database.py          # DB connection
+│   ├── seed_data.py         # Demo vocabulary
 │   ├── routers/
-│   │   ├── vocabulary.py    # CRUD Vokabeln
-│   │   ├── training.py      # Queue, Review, Sessions
-│   │   ├── progress.py      # Statistiken, User-Management
-│   │   └── ai.py            # KI-Endpunkte
+│   │   ├── vocabulary.py    # CRUD words
+│   │   ├── training.py      # Queue, review, sessions
+│   │   ├── progress.py      # Statistics, user management
+│   │   └── ai.py            # AI endpoints
 │   └── services/
-│       ├── spaced_repetition.py  # SM-2 Algorithmus
-│       └── ai_service.py         # Mistral AI (primär) + Anthropic (Fallback)
+│       ├── spaced_repetition.py  # SM-2 algorithm
+│       └── ai_service.py         # Mistral AI (primary) + Anthropic (fallback)
 │
 └── frontend/
     └── src/
         ├── app/
         │   ├── page.tsx         # Dashboard
-        │   ├── training/        # Trainingsseite
-        │   └── vocabulary/      # Vokabelverwaltung
+        │   ├── training/        # Training page
+        │   └── vocabulary/      # Vocabulary management
         ├── components/
         │   ├── exercises/
-        │   │   ├── Flashcard.tsx       # 3D-Karteikarte
-        │   │   ├── MultipleChoice.tsx  # Auswahlübung
-        │   │   └── WriteExercise.tsx   # Schreibmodus
+        │   │   ├── Flashcard.tsx       # 3D flashcard
+        │   │   ├── MultipleChoice.tsx  # Multiple choice exercise
+        │   │   └── WriteExercise.tsx   # Write mode
         │   ├── Navbar.tsx
         │   ├── AddWordModal.tsx
         │   ├── VocabCard.tsx
         │   ├── StatCard.tsx
         │   └── ProgressBar.tsx
         ├── lib/
-        │   ├── api.ts       # Axios API-Client
-        │   └── utils.ts     # Hilfsfunktionen
+        │   ├── api.ts       # Axios API client
+        │   └── utils.ts     # Helper functions
         ├── store/
-        │   └── appStore.ts  # Zustand State Management
+        │   └── appStore.ts  # Zustand state management
         └── types/
-            └── index.ts     # TypeScript-Typen
+            └── index.ts     # TypeScript types
 ```
 
-## API-Übersicht
+## API Overview
 
-| Methode | Endpunkt | Beschreibung |
-|---------|----------|-------------|
-| `GET` | `/api/users/{id}/progress` | Lernstatistiken |
-| `GET` | `/api/words/` | Vokabelliste |
-| `POST` | `/api/words/` | Vokabel hinzufügen |
-| `GET` | `/api/train/queue` | Trainingswarteschlange |
-| `POST` | `/api/train/review` | Bewertung einreichen |
-| `POST` | `/api/ai/sentence` | KI-Beispielsatz generieren |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/users/{id}/progress` | Learning statistics |
+| `GET` | `/api/words/` | Vocabulary list |
+| `POST` | `/api/words/` | Add word |
+| `GET` | `/api/train/queue` | Training queue |
+| `POST` | `/api/train/review` | Submit review rating |
+| `POST` | `/api/ai/sentence` | Generate AI example sentence |
 
-Vollständige Dokumentation: http://localhost:8000/docs
+Full documentation: http://localhost:8000/docs

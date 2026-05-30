@@ -21,10 +21,10 @@ export function accuracyColor(pct: number): string {
 
 /** Memory strength 0-100 → label */
 export function memoryLabel(strength: number): string {
-  if (strength >= 80) return "Sehr gut";
-  if (strength >= 50) return "Gut";
-  if (strength >= 20) return "Lernend";
-  return "Neu";
+  if (strength >= 80) return "Very good";
+  if (strength >= 50) return "Good";
+  if (strength >= 20) return "Learning";
+  return "New";
 }
 
 /** Memory strength 0-100 → Tailwind color */
@@ -38,14 +38,14 @@ export function memoryColor(strength: number): string {
 /** SM-2 quality 0-5 → descriptive label */
 export function qualityLabel(q: number): string {
   const labels: Record<number, string> = {
-    0: "Komplett falsch",
-    1: "Falsch",
-    2: "Schwierig",
+    0: "Completely wrong",
+    1: "Wrong",
+    2: "Hard",
     3: "Okay",
-    4: "Gut",
-    5: "Perfekt",
+    4: "Good",
+    5: "Perfect",
   };
-  return labels[q] ?? "Unbekannt";
+  return labels[q] ?? "Unknown";
 }
 
 /** Shuffle an array (Fisher-Yates) */
