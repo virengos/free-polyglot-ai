@@ -1,0 +1,39 @@
+# ── Secrets / Environment ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env.local
+frontend/.env.*.local
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+backend/.venv/
+*.egg-info/
+dist/
+*.sqlite
+*.db
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+*.tsbuildinfo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+.logs/
+*.log
+
+# ── Docker volumes ────────────────────────────────────────────────────────────
+pgdata/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

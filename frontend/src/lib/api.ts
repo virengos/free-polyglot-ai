@@ -1,0 +1,141 @@
+import axios from "axios";
+import type {
+  User,
+  VocabularyWord,
+  TrainingSession,
+  ProgressStats,
+  ReviewResult,
+} from "@/types";
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { "Content-Type": "application/json" },
+});
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export const usersApi = {
+  list: () => api.get<User[]>("/api/users/").then((r) => r.data),
+  get: (id: number) => api.get<User>(`/api/users/${id}`).then((r) => r.data),
+  create: (payload: {
+    username: string;
+    email: string;
+    native_language: string;
+    target_languages: string[];
+  }) => api.post<User>("/api/users/", payload).then((r) => r.data),
+  update: (
+    id: number,
+    payload: { native_language?: string; target_languages?: string[] }
+  ) => api.put<User>(`/api/users/${id}`, payload).then((r) => r.data),
+  progress: (id: number) =>
+    api.get<ProgressStats>(`/api/users/${id}/progress`).then((r) => r.data),
+};
+
+// ─── Vocabulary ───────────────────────────────────────────────────────────────
+
+export const vocabularyApi = {
+  list: (params: {
+    user_id: number;
+    source_language?: string;
+    target_language?: string;
+    search?: string;
+  }) =>
+    api.get<VocabularyWord[]>("/api/words/", { params }).then((r) => r.data),
+
+  get: (id: number) =>
+    api.get<VocabularyWord>(`/api/words/${id}`).then((r) => r.data),
+
+  create: (payload: {
+    user_id: number;
+    source_language: string;
+    target_language: string;
+    word: string;
+    translation: string;
+    part_of_speech?: string;
+    example_sentence?: string;
+    example_translation?: string;
+    synonyms?: string[];
+    tags?: string[];
+    notes?: string;
+  }) => api.post<VocabularyWord>("/api/words/", payload).then((r) => r.data),
+
+  update: (
+    id: number,
+    payload: Partial<{
+      translation: string;
+      part_of_speech: string;
+      example_sentence: string;
+      example_translation: string;
+      synonyms: string[];
+      tags: string[];
+      notes: string;
+    }>
+  ) => api.put<VocabularyWord>(`/api/words/${id}`, payload).then((r) => r.data),
+
+  delete: (id: number) =>
+    api.delete(`/api/words/${id}`).then((r) => r.data),
+
+  distractors: (id: number, count = 3) =>
+    api
+      .get<string[]>(`/api/words/${id}/distractors`, { params: { count } })
+      .then((r) => r.data),
+};
+
+// ─── Training ─────────────────────────────────────────────────────────────────
+
+export const trainingApi = {
+  queue: (params: {
+    user_id: number;
+    source_lang?: string;
+    target_lang?: string;
+    limit?: number;
+    include_new?: boolean;
+  }) =>
+    api
+      .get<VocabularyWord[]>("/api/train/queue", { params })
+      .then((r) => r.data),
+
+  review: (payload: {
+    user_id: number;
+    word_id: number;
+    quality: number; // 0-5
+    response_time_ms?: number;
+  }) =>
+    api.post<ReviewResult>("/api/train/review", payload).then((r) => r.data),
+
+  startSession: (payload: {
+    user_id: number;
+    language_pairs?: { source: string; target: string }[];
+  }) =>
+    api
+      .post<TrainingSession>("/api/train/session", payload)
+      .then((r) => r.data),
+
+  endSession: (session_id: number, payload: { ended_at?: string }) =>
+    api
+      .patch<TrainingSession>(`/api/train/session/${session_id}/end`, payload)
+      .then((r) => r.data),
+};
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
+
+export const aiApi = {
+  generateSentence: (word: string, language: string, level = "A2") =>
+    api
+      .post<{ sentence: string }>("/api/ai/sentence", { word, language, level })
+      .then((r) => r.data),
+
+  wordInfo: (word: string, source_language: string, target_language: string) =>
+    api
+      .post("/api/ai/word-info", { word, source_language, target_language })
+      .then((r) => r.data),
+
+  story: (words: string[], language: string) =>
+    api
+      .post<{ story: string }>("/api/ai/story", { words, language })
+      .then((r) => r.data),
+};
+
+export default api;
