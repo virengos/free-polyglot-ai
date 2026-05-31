@@ -16,6 +16,8 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 - **Dashboard**: XP, level, streak, learning progress (Mastered / In Progress / New), language statistics, and a contextual call-to-action for new users
 - **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
 - **One Language at a Time**: Each training session is locked to a single target language — a language picker appears at the start of every session. The session language resets on page refresh, preventing cross-language interference. AI vocabulary suggestions are also scoped to the active session language.
+- **Games – Memory**: A card-matching game that uses your vocabulary for the active session language. Every card (both the word and its translation) shows an AI-generated image. Live stats show correct pairs, wrong attempts, total attempts, and accuracy %. The win screen displays the full breakdown.
+- **Conversations**: Practise everyday topics (age, origin, profession, hobbies, morning routine, family, food, weekend) with AI-generated fill-in-the-blank exercises in the target language, with immediate scoring and translation.
 - **Settings**: Native language, target languages with CEFR proficiency levels (A1–C2), daily word goal, preferred exercise types, and **Audit panel** (see below)
 - **Audit panel** *(Settings → Audit)*: Real-time scan of all installed Python dependency licences (approved / review / restricted) with search and filter; feature-originality checklist documenting how each feature is independently developed relative to commercial apps (Duolingo, Quizlet, Anki, Reverso)
 - **Demo data**: Automatic seeding on first launch

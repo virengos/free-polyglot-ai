@@ -7,6 +7,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "1.9.0",
+    date: "2026-05-31",
+    features: [
+      "Memory game: vocabulary is now filtered to the active session language — only words for the language you chose in Training are shown",
+      "Memory game: translation cards now display the same image as their matching word card, so every card in the grid has a visual clue",
+      "Memory game: larger cards (h-44) and bigger, bolder text for improved readability",
+      "Memory game: language badge shows the current session language (flag + name) above the game board",
+      "Memory game: warning banner with link to Training shown when no session language is selected",
+    ],
+    bugfixes: [
+      "Memory game: accuracy score now shown alongside explicit Correct / Wrong / Attempts counters — win screen displays the full breakdown (e.g. '8 correct out of 40 attempts')",
+      "Memory game: wrong counter tracks each failed pair attempt independently and resets on new game",
+    ],
+  },
+  {
     version: "1.8.0",
     date: "2026-05-31",
     features: [

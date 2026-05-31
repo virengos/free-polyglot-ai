@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { vocabularyApi } from "@/lib/api";
 import { useAppStore } from "@/store/appStore";
 import type { VocabularyWord } from "@/types";
-import { Trophy, RefreshCcw, Loader2 } from "lucide-react";
+import { LANGUAGE_FLAGS, LANGUAGES } from "@/types";
+import { Trophy, RefreshCcw, Loader2, Globe } from "lucide-react";
 
 interface MemoryCard {
   id: string;
@@ -42,7 +43,7 @@ function buildCards(words: VocabularyWord[]): MemoryCard[] {
       pairId: w.id,
       content: w.translation,
       type: "translation" as const,
-      imageUrl: null,
+      imageUrl: w.image_url ?? null,
       isFlipped: false,
       isMatched: false,
     },
@@ -51,11 +52,12 @@ function buildCards(words: VocabularyWord[]): MemoryCard[] {
 }
 
 export default function MemoryGame() {
-  const { currentUserId } = useAppStore();
+  const { currentUserId, sessionLanguage } = useAppStore();
   const [cards, setCards] = useState<MemoryCard[]>([]);
   const [flipped, setFlipped] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
   const [matched, setMatched] = useState(0);
+  const [wrong, setWrong] = useState(0);
   const [loading, setLoading] = useState(true);
   const [won, setWon] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -73,10 +75,14 @@ export default function MemoryGame() {
       setWon(false);
       setMoves(0);
       setMatched(0);
+      setWrong(0);
       setFlipped([]);
       setImgErrors(new Set());
       try {
-        const words = await vocabularyApi.list({ user_id: currentUserId });
+        const words = await vocabularyApi.list({
+          user_id: currentUserId,
+          ...(sessionLanguage ? { target_language: sessionLanguage } : {}),
+        });
         const picked = shuffle(words).slice(0, count);
         setCards(buildCards(picked));
       } catch {
@@ -85,7 +91,7 @@ export default function MemoryGame() {
         setLoading(false);
       }
     },
-    [currentUserId]
+    [currentUserId, sessionLanguage]
   );
 
   useEffect(() => {
@@ -123,6 +129,7 @@ export default function MemoryGame() {
             return updated;
           } else {
             // No match — flip back after delay
+            setWrong((w) => w + 1);
             setBlocking(true);
             setTimeout(() => {
               setCards((c) =>
@@ -150,9 +157,35 @@ export default function MemoryGame() {
 
   const accuracy =
     moves > 0 ? Math.round((matched / moves) * 100) : 0;
+  const wrongAttempts = moves - matched;
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Language badge */}
+      {sessionLanguage && (
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+          <Globe className="h-4 w-4 text-indigo-400" />
+          <span className="text-slate-400">Session language:</span>
+          <span className="font-semibold">
+            {LANGUAGE_FLAGS[sessionLanguage] ?? ""} {LANGUAGES[sessionLanguage] ?? sessionLanguage.toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      {/* No session language warning */}
+      {!sessionLanguage && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          <Globe className="h-4 w-4 shrink-0" />
+          <span>
+            No session language selected. Go to{" "}
+            <a href="/training" className="underline hover:text-amber-100">
+              Training
+            </a>{" "}
+            to pick a language first.
+          </span>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -184,15 +217,23 @@ export default function MemoryGame() {
       </div>
 
       {/* Stats bar */}
-      <div className="flex gap-6 text-sm text-slate-400">
+      <div className="flex flex-wrap gap-6 text-sm text-slate-400">
         <span>
-          Moves: <span className="text-white font-semibold">{moves}</span>
-        </span>
-        <span>
-          Matched:{" "}
+          Pairs:{" "}
           <span className="text-emerald-400 font-semibold">
             {matched}/{totalPairs}
           </span>
+        </span>
+        <span>
+          ✓ Correct:{" "}
+          <span className="text-emerald-400 font-semibold">{matched}</span>
+        </span>
+        <span>
+          ✗ Wrong:{" "}
+          <span className="text-rose-400 font-semibold">{wrongAttempts}</span>
+        </span>
+        <span>
+          Attempts: <span className="text-white font-semibold">{moves}</span>
         </span>
         <span>
           Accuracy: <span className="text-white font-semibold">{accuracy}%</span>
@@ -209,7 +250,7 @@ export default function MemoryGame() {
       {/* No words */}
       {!loading && cards.length === 0 && (
         <div className="flex h-64 flex-col items-center justify-center gap-3 text-slate-400">
-          <p>No vocabulary words found.</p>
+          <p>No vocabulary words found{sessionLanguage ? ` for ${LANGUAGES[sessionLanguage] ?? sessionLanguage}` : ""}.</p>
           <p className="text-sm">Add some words first via the Vocabulary page.</p>
         </div>
       )}
@@ -225,9 +266,24 @@ export default function MemoryGame() {
           >
             <Trophy className="h-14 w-14 text-yellow-400" />
             <h2 className="text-2xl font-bold text-white">You won!</h2>
+            <div className="flex gap-6 text-sm">
+              <span className="text-slate-300">
+                ✓ Correct:{" "}
+                <span className="font-bold text-emerald-400">{matched}</span>
+              </span>
+              <span className="text-slate-300">
+                ✗ Wrong:{" "}
+                <span className="font-bold text-rose-400">{wrongAttempts}</span>
+              </span>
+              <span className="text-slate-300">
+                Attempts:{" "}
+                <span className="font-bold text-white">{moves}</span>
+              </span>
+            </div>
             <p className="text-slate-300">
-              Completed in <span className="font-bold text-white">{moves}</span> moves
-              with <span className="font-bold text-yellow-400">{accuracy}%</span> accuracy.
+              Accuracy:{" "}
+              <span className="font-bold text-yellow-400">{accuracy}%</span>
+              {" "}({matched} correct out of {moves} attempts)
             </p>
             <button
               onClick={() => loadWords(pairCount)}
@@ -251,7 +307,7 @@ export default function MemoryGame() {
           {cards.map((card) => (
             <motion.div
               key={card.id}
-              className="relative h-36 cursor-pointer select-none"
+              className="relative h-44 cursor-pointer select-none"
               style={{ perspective: 800 }}
               onClick={() => handleCardClick(card.id)}
             >
@@ -289,12 +345,12 @@ export default function MemoryGame() {
                       <img
                         src={card.imageUrl}
                         alt={card.content}
-                        className="h-20 w-full object-cover"
+                        className="h-24 w-full object-cover"
                         onError={() => handleImgError(card.id)}
                         loading="lazy"
                       />
                       <span
-                        className={`px-2 py-1 text-xs font-semibold leading-tight text-center truncate w-full ${
+                        className={`px-2 py-1 text-sm font-bold leading-tight text-center w-full line-clamp-2 ${
                           card.isMatched ? "text-emerald-300" : "text-indigo-200"
                         }`}
                       >
@@ -303,7 +359,7 @@ export default function MemoryGame() {
                     </>
                   ) : (
                     <span
-                      className={`px-2 text-center text-sm font-medium leading-tight ${
+                      className={`px-3 text-center text-base font-semibold leading-snug ${
                         card.isMatched
                           ? "text-emerald-300"
                           : card.type === "word"
