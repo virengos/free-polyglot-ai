@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { trainingApi, vocabularyApi, usersApi, aiApi } from "@/lib/api";
 import type { VocabularyWord, ExerciseType, User, WordCategory } from "@/types";
-import { WORD_CATEGORY_ICONS } from "@/types";
+import { WORD_CATEGORY_ICONS, LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import Flashcard from "@/components/exercises/Flashcard";
 import MultipleChoice from "@/components/exercises/MultipleChoice";
 import WriteExercise from "@/components/exercises/WriteExercise";
 import ProgressBar from "@/components/ProgressBar";
-import { CheckCircle, XCircle, Trophy, Sparkles, RefreshCcw } from "lucide-react";
+import { CheckCircle, XCircle, Trophy, Sparkles, RefreshCcw, Lock, Globe } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ALL_EXERCISE_TYPES: ExerciseType[] = ["flashcard", "multiple_choice", "write"];
@@ -24,7 +24,7 @@ function pickExerciseType(word: VocabularyWord, allowed: ExerciseType[]): Exerci
 }
 
 export default function TrainingPage() {
-  const { currentUserId } = useAppStore();
+  const { currentUserId, sessionLanguage, setSessionLanguage } = useAppStore();
   const [queue, setQueue] = useState<VocabularyWord[]>([]);
   const [categories, setCategories] = useState<WordCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -81,23 +81,31 @@ export default function TrainingPage() {
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const [words, userData, progressStats] = await Promise.all([
+      // Always load user so language picker has target_languages available
+      const userData = await usersApi.get(currentUserId);
+      setUser(userData);
+
+      // If no session language is chosen, show the picker instead of the queue
+      if (!sessionLanguage) {
+        setLoading(false);
+        return;
+      }
+
+      const [words, progressStats] = await Promise.all([
         trainingApi.queue({
           user_id: currentUserId,
+          target_lang: sessionLanguage,
           limit: 20,
           category: selectedCategory || undefined,
         }),
-        usersApi.get(currentUserId),
         usersApi.progress(currentUserId),
       ]);
-      setUser(userData);
 
-      // Auto-bootstrap: silently generate words for languages that have too few.
-      // We set loading=false FIRST so the UI is immediately usable, then run
-      // the AI generation in the background.
-      const targetLangs = userData.target_languages ?? [];
-      const ranked = rankLanguages(targetLangs, progressStats.languages ?? []);
-      const missingLangs = ranked.filter((l) => l.wordCount < MIN_WORDS_PER_LANG);
+      // Auto-bootstrap: only for the current session language
+      const langStats = progressStats.languages ?? [];
+      const sessionStat = langStats.find((s) => s.target_language === sessionLanguage);
+      const sessionWordCount = sessionStat?.total_words ?? 0;
+      const needsBootstrap = sessionWordCount < MIN_WORDS_PER_LANG;
 
       // Show the queue immediately regardless of whether bootstrap is needed
       setQueue(words);
@@ -109,39 +117,37 @@ export default function TrainingPage() {
       if (words.length > 0) {
         setExerciseType(pickExerciseType(words[0], allowed));
       } else {
-        const all = await trainingApi.queue({ user_id: currentUserId, limit: 1, include_all: true });
+        const all = await trainingApi.queue({
+          user_id: currentUserId,
+          target_lang: sessionLanguage,
+          limit: 1,
+          include_all: true,
+        });
         setHasAnyWords(all.length > 0);
       }
       setLoading(false);
 
-      if (missingLangs.length > 0 && !suggesting) {
+      if (needsBootstrap && !suggesting) {
         setSuggesting(true);
         setSuggestStatus(
-          `Auto-generating vocabulary for ${missingLangs.map((l) => l.targetLang.toUpperCase()).join(", ")}…`
+          `Auto-generating vocabulary for ${sessionLanguage.toUpperCase()}…`
         );
         try {
-          let autoAdded = 0;
-          for (const { targetLang } of missingLangs) {
-            const proficiencyLevel =
-              (userData.language_proficiencies ?? {})[targetLang] ?? "A2";
-            try {
-              const res = await aiApi.suggestWords({
-                user_id: currentUserId,
-                source_language: userData.native_language ?? "de",
-                target_language: targetLang,
-                count: MIN_WORDS_PER_LANG,
-                proficiency_level: proficiencyLevel,
-              });
-              autoAdded += res.added;
-            } catch {
-              // non-fatal: skip this language
-            }
-          }
-          if (autoAdded > 0) {
-            toast.success(`Auto-generated ${autoAdded} starter word${autoAdded !== 1 ? "s" : ""}!`);
+          const proficiencyLevel =
+            (userData.language_proficiencies ?? {})[sessionLanguage] ?? "A2";
+          const res = await aiApi.suggestWords({
+            user_id: currentUserId,
+            source_language: userData.native_language ?? "de",
+            target_language: sessionLanguage,
+            count: MIN_WORDS_PER_LANG,
+            proficiency_level: proficiencyLevel,
+          });
+          if (res.added > 0) {
+            toast.success(`Auto-generated ${res.added} starter word${res.added !== 1 ? "s" : ""}!`);
             // Reload queue now that new words exist
             const refreshedWords = await trainingApi.queue({
               user_id: currentUserId,
+              target_lang: sessionLanguage,
               limit: 20,
               category: selectedCategory || undefined,
             });
@@ -152,6 +158,8 @@ export default function TrainingPage() {
             setDone(false);
             if (refreshedWords.length > 0) setExerciseType(pickExerciseType(refreshedWords[0], allowed));
           }
+        } catch {
+          // non-fatal
         } finally {
           setSuggesting(false);
           setSuggestStatus("");
@@ -164,13 +172,14 @@ export default function TrainingPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUserId, selectedCategory, sessionLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function practiceAll() {
     setLoading(true);
     try {
       const words = await trainingApi.queue({
         user_id: currentUserId,
+        target_lang: sessionLanguage || undefined,
         limit: 20,
         include_all: true,
         category: selectedCategory || undefined,
@@ -190,68 +199,44 @@ export default function TrainingPage() {
   }
 
   /**
-   * Smart vocabulary generation:
-   * – Covers ALL target languages, not just the first one.
-   * – Phase 1 (bootstrapping): generates words for any language with < MIN_WORDS_PER_LANG.
-   * – Phase 2 (normal): focuses on the language with the weakest average memory strength.
-   * – Uses the CEFR proficiency level stored in Settings for each language.
+   * Smart vocabulary generation — scoped to the active session language.
+   * Focuses on the single language chosen for this session, respecting CEFR level.
    */
   async function suggestWords() {
     if (!user) return;
     const sourceLang = user.native_language ?? "de";
-    const targetLangs = user.target_languages ?? [];
-    if (targetLangs.length === 0) {
-      toast.error("No target languages configured. Please visit Settings first.");
+
+    if (!sessionLanguage) {
+      toast.error("Please choose a session language first.");
       return;
     }
 
     setSuggesting(true);
     setSuggestStatus("Analysing your vocabulary…");
     try {
-      // Fetch up-to-date progress to know word counts and strengths per language
       const progressStats = await usersApi.progress(currentUserId);
-      const ranked = rankLanguages(targetLangs, progressStats.languages ?? []);
+      const langStats = progressStats.languages ?? [];
+      const stat = langStats.find((s) => s.target_language === sessionLanguage);
+      const wordCount = stat?.total_words ?? 0;
+      const avgStrength = stat?.avg_memory_strength ?? 0;
+      const proficiencyLevel = (user.language_proficiencies ?? {})[sessionLanguage] ?? "A2";
+      const phase =
+        wordCount < MIN_WORDS_PER_LANG
+          ? `bootstrapping (${wordCount} words so far)`
+          : `strengthening (avg. strength ${Math.round(avgStrength)}%)`;
 
-      // Determine how many languages to address this session.
-      // Always do all languages that still need bootstrapping;
-      // if all are bootstrapped, focus on the single weakest language.
-      const needsBootstrap = ranked.filter((l) => l.wordCount < MIN_WORDS_PER_LANG);
-      const langsToProcess = needsBootstrap.length > 0 ? needsBootstrap : ranked.slice(0, 1);
+      setSuggestStatus(`Generating words for ${sessionLanguage.toUpperCase()} — ${phase}…`);
 
-      const wordsPerLang = Math.max(6, Math.ceil(12 / langsToProcess.length));
-      let totalAdded = 0;
+      const result = await aiApi.suggestWords({
+        user_id: currentUserId,
+        source_language: sourceLang,
+        target_language: sessionLanguage,
+        count: 12,
+        proficiency_level: proficiencyLevel,
+      });
 
-      for (const { targetLang, wordCount, avgStrength } of langsToProcess) {
-        const proficiencyLevel =
-          (user.language_proficiencies ?? {})[targetLang] ?? "A2";
-
-        const phase =
-          wordCount < MIN_WORDS_PER_LANG
-            ? `bootstrapping (${wordCount} words so far)`
-            : `strengthening (avg. strength ${Math.round(avgStrength)}%)`;
-
-        setSuggestStatus(
-          `Generating ${wordsPerLang} words for ${targetLang.toUpperCase()} — ${phase}…`
-        );
-
-        try {
-          const result = await aiApi.suggestWords({
-            user_id: currentUserId,
-            source_language: sourceLang,
-            target_language: targetLang,
-            count: wordsPerLang,
-            proficiency_level: proficiencyLevel,
-          });
-          totalAdded += result.added;
-        } catch (langErr: any) {
-          const detail = langErr?.response?.data?.detail ?? "";
-          if (detail) throw langErr; // surface API/key errors immediately
-          console.warn(`Suggestion failed for ${targetLang}:`, langErr);
-        }
-      }
-
-      if (totalAdded > 0) {
-        toast.success(`${totalAdded} new word${totalAdded !== 1 ? "s" : ""} added!`);
+      if (result.added > 0) {
+        toast.success(`${result.added} new word${result.added !== 1 ? "s" : ""} added!`);
       } else {
         toast.success("All common words already in your vocabulary – great job!");
       }
@@ -358,6 +343,62 @@ export default function TrainingPage() {
     );
   }
 
+  // ── Language picker (One Language at a Time) ──────────────────────────────
+  if (!sessionLanguage) {
+    const targetLangs = user?.target_languages ?? [];
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Globe className="h-12 w-12 text-indigo-400" />
+          <h2 className="text-2xl font-bold text-white">One Language at a Time</h2>
+          <p className="text-slate-400 max-w-sm text-sm">
+            Focus your daily session on one language to avoid interference.
+            Switch languages only between separate sessions.
+          </p>
+        </div>
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm">
+          <p className="text-xs text-slate-400 uppercase tracking-wider mb-4">Choose today's language</p>
+          <div className="flex flex-col gap-3">
+            {targetLangs.length === 0 ? (
+              <p className="text-slate-500 text-sm text-center">
+                No target languages set.{" "}
+                <a href="/settings" className="text-indigo-400 hover:underline">Configure in Settings</a>
+              </p>
+            ) : (
+              targetLangs.map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setSessionLanguage(lang)}
+                  className="flex items-center gap-3 bg-slate-700 hover:bg-indigo-600 border border-slate-600 hover:border-indigo-500 text-white font-semibold px-5 py-3 rounded-xl transition-all"
+                >
+                  <span className="text-2xl">{LANGUAGE_FLAGS[lang] ?? "🌐"}</span>
+                  <span>{LANGUAGES[lang] ?? lang}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Session language banner ───────────────────────────────────────────────
+  const SessionBanner = () => (
+    <div className="w-full max-w-lg mx-auto mb-3 flex items-center justify-between bg-indigo-950 border border-indigo-800 rounded-xl px-4 py-2">
+      <div className="flex items-center gap-2 text-sm text-indigo-200">
+        <Lock className="h-3.5 w-3.5 text-indigo-400" />
+        <span className="text-lg">{LANGUAGE_FLAGS[sessionLanguage] ?? "🌐"}</span>
+        <span className="font-semibold">{LANGUAGES[sessionLanguage] ?? sessionLanguage} session</span>
+      </div>
+      <button
+        onClick={() => setSessionLanguage(null)}
+        className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-2 py-1 rounded-lg transition-colors"
+      >
+        End Session
+      </button>
+    </div>
+  );
+
   if (queue.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
@@ -367,9 +408,10 @@ export default function TrainingPage() {
         </h2>
         <p className="text-slate-400 text-center max-w-sm">
           {hasAnyWords
-            ? "All your words are scheduled for a future review. Practice them anyway or let the AI suggest new ones."
-            : "You have no vocabulary words yet. Let the AI suggest words to get started!"}
+            ? `All ${LANGUAGE_FLAGS[sessionLanguage] ?? ""} ${LANGUAGES[sessionLanguage] ?? sessionLanguage} words are scheduled for a future review. Practice them anyway or let the AI suggest new ones.`
+            : `You have no ${LANGUAGE_FLAGS[sessionLanguage] ?? ""} ${LANGUAGES[sessionLanguage] ?? sessionLanguage} vocabulary yet. Let the AI suggest words to get started!`}
         </p>
+        <SessionBanner />
         <CategoryStrip />
         <div className="flex flex-col sm:flex-row gap-3">
           {hasAnyWords && (
@@ -388,7 +430,7 @@ export default function TrainingPage() {
           >
             <span className="flex items-center gap-2">
               <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
-              {suggesting ? "Generating…" : "AI: Suggest new words (all languages)"}
+              {suggesting ? "Generating…" : `AI: Suggest ${LANGUAGES[sessionLanguage] ?? sessionLanguage} words`}
             </span>
             {suggesting && suggestStatus && (
               <span className="text-xs text-indigo-200 font-normal">{suggestStatus}</span>
@@ -412,6 +454,11 @@ export default function TrainingPage() {
       <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
         <Trophy className="h-16 w-16 text-yellow-400" />
         <h2 className="text-2xl font-bold text-white">Session complete!</h2>
+        {sessionLanguage && (
+          <p className="text-slate-400 text-sm">
+            {LANGUAGE_FLAGS[sessionLanguage]} {LANGUAGES[sessionLanguage] ?? sessionLanguage} session
+          </p>
+        )}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm">
           <div className="flex justify-around text-center">
             <div>
@@ -428,12 +475,19 @@ export default function TrainingPage() {
             </div>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={loadQueue}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
             Train again
+          </button>
+          <button
+            onClick={() => setSessionLanguage(null)}
+            className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          >
+            <Globe className="h-4 w-4" />
+            New Language Session
           </button>
           <a
             href="/"
@@ -456,6 +510,9 @@ export default function TrainingPage() {
 
   return (
     <div className="flex flex-col min-h-screen p-6">
+      {/* Session language lock banner */}
+      <SessionBanner />
+
       {/* Category strip */}
       <CategoryStrip />
 

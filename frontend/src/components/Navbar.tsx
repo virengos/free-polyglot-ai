@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, LayoutDashboard, Dumbbell, Settings } from "lucide-react";
+import { BookOpen, LayoutDashboard, Dumbbell, Settings, History, Gamepad2, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/training", icon: Dumbbell, label: "Training" },
   { href: "/vocabulary", icon: BookOpen, label: "Vocabulary" },
+  { href: "/games", icon: Gamepad2, label: "Games" },
+  { href: "/tips", icon: Lightbulb, label: "Tips" },
   { href: "/settings", icon: Settings, label: "Settings" },
+  { href: "/changelog", icon: History, label: "Changelog" },
 ];
 
 export default function Navbar() {

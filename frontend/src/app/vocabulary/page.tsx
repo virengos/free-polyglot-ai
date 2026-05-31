@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { vocabularyApi, usersApi, aiApi } from "@/lib/api";
 import type { VocabularyWord, WordCategory } from "@/types";
-import { WORD_CATEGORY_ICONS } from "@/types";
+import { WORD_CATEGORY_ICONS, LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import VocabCard from "@/components/VocabCard";
 import AddWordModal from "@/components/AddWordModal";
-import { LANGUAGES } from "@/types";
-import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder } from "lucide-react";
+import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function VocabularyPage() {
-  const { currentUserId } = useAppStore();
+  const { currentUserId, sessionLanguage } = useAppStore();
   const [words, setWords] = useState<VocabularyWord[]>([]);
   const [categories, setCategories] = useState<WordCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,12 +130,15 @@ export default function VocabularyPage() {
     try {
       const user = await usersApi.get(currentUserId);
       const sourceLang = user.native_language;
-      const targetLang = filterLang || user.target_languages[0] || "en";
+      // Respect the active session language; fall back to filter or first target language
+      const targetLang = sessionLanguage || filterLang || user.target_languages[0] || "en";
+      const proficiencyLevel = (user.language_proficiencies ?? {})[targetLang] ?? "A2";
       const result = await aiApi.suggestWords({
         user_id: currentUserId,
         source_language: sourceLang,
         target_language: targetLang,
         count: 8,
+        proficiency_level: proficiencyLevel,
       });
       toast.success(`${result.added} new words added!`);
       loadWords();
@@ -172,10 +174,18 @@ export default function VocabularyPage() {
             onClick={handleSuggestWords}
             disabled={suggesting}
             className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors border border-slate-600"
-            title="Let AI suggest new vocabulary words"
+            title={sessionLanguage ? `Generate ${LANGUAGES[sessionLanguage] ?? sessionLanguage} words (session locked)` : "Let AI suggest new vocabulary words"}
           >
-            <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
-            {suggesting ? "Generating…" : "AI Suggest"}
+            {sessionLanguage ? (
+              <Lock className="h-4 w-4 text-indigo-400" />
+            ) : (
+              <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
+            )}
+            {suggesting
+              ? "Generating…"
+              : sessionLanguage
+              ? `AI Suggest ${LANGUAGE_FLAGS[sessionLanguage] ?? ""} ${LANGUAGES[sessionLanguage] ?? sessionLanguage}`
+              : "AI Suggest"}
           </button>
           <button
             onClick={() => setShowModal(true)}
