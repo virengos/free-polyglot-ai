@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { RotateCcw, Volume2, Star } from "lucide-react";
+import { RotateCcw, Volume2, Star, ImageOff, RefreshCw } from "lucide-react";
 import type { VocabularyWord } from "@/types";
 import { cn, memoryColor, memoryLabel } from "@/lib/utils";
-import { LANGUAGE_FLAGS } from "@/types";
+import { LANGUAGE_FLAGS, WORD_CATEGORY_ICONS } from "@/types";
 import { speak } from "@/lib/tts";
+import { aiApi, vocabularyApi } from "@/lib/api";
+import toast from "react-hot-toast";
 
 interface FlashcardProps {
   word: VocabularyWord;
@@ -25,6 +27,27 @@ const QUALITY_BUTTONS = [
 export default function Flashcard({ word, onRate, onToggleFavorite }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false);
   const [speakingKey, setSpeakingKey] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(word.image_url ?? null);
+  const [regenLoading, setRegenLoading] = useState(false);
+
+  async function handleRegenImage(e: React.MouseEvent) {
+    e.stopPropagation();
+    setRegenLoading(true);
+    try {
+      const result = await aiApi.generateImage(word.word, word.source_language);
+      if (!result?.url) throw new Error("No URL returned");
+      setImageUrl(result.url);
+      setImgError(false);
+      await vocabularyApi.update(word.id, { image_url: result.url });
+      toast.success("Image updated!");
+    } catch (err: any) {
+      const detail: string = err?.response?.data?.detail ?? "";
+      toast.error(detail || "Could not generate image. Try again in a moment.");
+    } finally {
+      setRegenLoading(false);
+    }
+  }
 
   function triggerSpeak(text: string, lang: string, key: string) {
     setSpeakingKey(key);
@@ -65,38 +88,78 @@ export default function Flashcard({ word, onRate, onToggleFavorite }: FlashcardP
         >
           {/* Front */}
           <div
-            className="bg-slate-800 border border-slate-700 rounded-2xl p-8 min-h-48 flex flex-col items-center justify-center gap-4"
+            className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden min-h-48 flex flex-col items-center justify-center gap-4"
             style={{ backfaceVisibility: "hidden" }}
           >
-            <div className="flex items-center gap-2 text-slate-400 text-sm">
-              <span>{LANGUAGE_FLAGS[word.source_language]}</span>
-              <span className="capitalize">{word.source_language}</span>
-              <span>→</span>
-              <span>{LANGUAGE_FLAGS[word.target_language]}</span>
-            </div>
-            <p className="text-3xl font-bold text-white">{word.word}</p>
-            {word.part_of_speech && (
-              <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
-                {word.part_of_speech}
-              </span>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerSpeak(word.word, word.source_language, "word");
-                }}
-                className={cn(
-                  "transition-colors",
-                  speakingKey === "word"
-                    ? "text-indigo-400 animate-pulse"
-                    : "text-slate-400 hover:text-white"
+            {/* Word image */}
+            {imageUrl && !imgError && (
+              <div className="w-full h-40 relative overflow-hidden group">
+                <img
+                  src={imageUrl}
+                  alt={word.word}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                  loading="lazy"
+                />
+                {word.category && (
+                  <span className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+                    {WORD_CATEGORY_ICONS[word.category] ?? "📦"} {word.category}
+                  </span>
                 )}
-                title="Pronunciation"
-              >
-                <Volume2 className="h-5 w-5" />
-              </button>
-              <span className="text-slate-500 text-xs">Tap to flip</span>
+                <button
+                  onClick={handleRegenImage}
+                  disabled={regenLoading}
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-60"
+                  title="Regenerate image"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", regenLoading && "animate-spin")} />
+                </button>
+              </div>
+            )}
+            {(!imageUrl || imgError) && (
+              <div className="flex flex-col items-center gap-1 pt-4">
+                <ImageOff className="h-8 w-8 text-slate-600" />
+                <button
+                  onClick={handleRegenImage}
+                  disabled={regenLoading}
+                  className="text-xs text-slate-400 hover:text-indigo-400 flex items-center gap-1 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("h-3 w-3", regenLoading && "animate-spin")} />
+                  {regenLoading ? "Generating…" : "Generate image"}
+                </button>
+              </div>
+            )}
+            <div className="px-8 pb-6 flex flex-col items-center gap-4">
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <span>{LANGUAGE_FLAGS[word.source_language]}</span>
+                <span className="capitalize">{word.source_language}</span>
+                <span>→</span>
+                <span>{LANGUAGE_FLAGS[word.target_language]}</span>
+              </div>
+              <p className="text-3xl font-bold text-white">{word.word}</p>
+              {word.part_of_speech && (
+                <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
+                  {word.part_of_speech}
+                </span>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerSpeak(word.word, word.source_language, "word");
+                  }}
+                  className={cn(
+                    "transition-colors",
+                    speakingKey === "word"
+                      ? "text-indigo-400 animate-pulse"
+                      : "text-slate-400 hover:text-white"
+                  )}
+                  title="Pronunciation"
+                >
+                  <Volume2 className="h-5 w-5" />
+                </button>
+                <span className="text-slate-500 text-xs">Tap to flip</span>
+              </div>
             </div>
           </div>
 

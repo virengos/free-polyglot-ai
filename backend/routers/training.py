@@ -16,6 +16,7 @@ def get_training_queue(
     user_id: int = Query(...),
     source_lang: Optional[str] = None,
     target_lang: Optional[str] = None,
+    category: Optional[str] = None,
     limit: int = Query(20, ge=1, le=100),
     include_new: bool = True,
     include_all: bool = False,
@@ -24,6 +25,7 @@ def get_training_queue(
     """
     Return words due for review (next_review <= now) and optionally new words.
     When include_all=True, return ALL words sorted by weakest memory first.
+    Optional category filter groups similar vocabulary together.
     Sorted by: overdue first, then by memory_strength ascending.
     """
     now = datetime.datetime.utcnow()
@@ -32,6 +34,8 @@ def get_training_queue(
         q = q.filter(VocabularyWord.source_language == source_lang)
     if target_lang:
         q = q.filter(VocabularyWord.target_language == target_lang)
+    if category:
+        q = q.filter(VocabularyWord.category == category)
 
     if include_all:
         return q.order_by(

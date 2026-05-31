@@ -38,6 +38,7 @@ class VocabularyWord(Base):
     example_sentence = Column(Text, nullable=True)
     example_translation = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
+    category = Column(String, nullable=True)   # e.g. "animals", "food", "clothing"
     synonyms = Column(JSON, default=[])
     tags = Column(JSON, default=[])
     notes = Column(Text, nullable=True)

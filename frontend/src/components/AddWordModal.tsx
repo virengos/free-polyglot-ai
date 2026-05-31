@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { vocabularyApi } from "@/lib/api";
-import { LANGUAGES } from "@/types";
-import type { VocabularyWord } from "@/types";
+import { LANGUAGES, WORD_CATEGORY_ICONS } from "@/types";
+import type { VocabularyWord, WordCategory } from "@/types";
 import toast from "react-hot-toast";
 
 interface AddWordModalProps {
@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   word: "",
   translation: "",
   part_of_speech: "",
+  category: "",
   example_sentence: "",
   example_translation: "",
   tags: "",
@@ -32,6 +33,11 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
   const isEdit = !!editWord;
   const [form, setForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState<WordCategory[]>([]);
+
+  useEffect(() => {
+    vocabularyApi.categories().then(setCategories).catch(() => {});
+  }, []);
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -42,6 +48,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
         word: editWord.word,
         translation: editWord.translation,
         part_of_speech: editWord.part_of_speech ?? "",
+        category: editWord.category ?? "",
         example_sentence: editWord.example_sentence ?? "",
         example_translation: editWord.example_translation ?? "",
         tags: editWord.tags.join(", "),
@@ -65,6 +72,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
         await vocabularyApi.update(editWord.id, {
           translation: form.translation.trim(),
           part_of_speech: form.part_of_speech.trim() || undefined,
+          category: form.category || undefined,
           example_sentence: form.example_sentence.trim() || undefined,
           example_translation: form.example_translation.trim() || undefined,
           tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
@@ -79,12 +87,13 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
           word: form.word.trim(),
           translation: form.translation.trim(),
           part_of_speech: form.part_of_speech.trim() || undefined,
+          category: form.category || undefined,
           example_sentence: form.example_sentence.trim() || undefined,
           example_translation: form.example_translation.trim() || undefined,
           tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
           notes: form.notes.trim() || undefined,
         });
-        toast.success("Word added!");
+        toast.success("Word added! AI is generating image & category…");
       }
       onAdded();
       onClose();
@@ -106,7 +115,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
           onClick={onClose}
         >
           <motion.div
-            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -157,7 +166,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
                 </div>
               </div>
 
-              {/* Word — read-only when editing (it's the source of truth) */}
+              {/* Word — read-only when editing */}
               <Field
                 label="Word"
                 value={form.word}
@@ -177,6 +186,26 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
                 placeholder="e.g. noun, verb"
                 onChange={(v) => update("part_of_speech", v)}
               />
+
+              {/* Category dropdown */}
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">
+                  Category (optional — AI will auto-assign if left blank)
+                </label>
+                <select
+                  value={form.category}
+                  onChange={(e) => update("category", e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                >
+                  <option value="">— auto-assign —</option>
+                  {categories.map((cat) => (
+                    <option key={cat.key} value={cat.key}>
+                      {WORD_CATEGORY_ICONS[cat.key] ?? "📦"} {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <Field
                 label="Example sentence (optional)"
                 value={form.example_sentence}
@@ -244,3 +273,4 @@ function Field({
     </div>
   );
 }
+

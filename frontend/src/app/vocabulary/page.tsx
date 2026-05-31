@@ -1,25 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { vocabularyApi, usersApi, aiApi } from "@/lib/api";
-import type { VocabularyWord } from "@/types";
+import type { VocabularyWord, WordCategory } from "@/types";
+import { WORD_CATEGORY_ICONS } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import VocabCard from "@/components/VocabCard";
 import AddWordModal from "@/components/AddWordModal";
 import { LANGUAGES } from "@/types";
-import { Plus, Search, Filter, Star, Sparkles } from "lucide-react";
+import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function VocabularyPage() {
   const { currentUserId } = useAppStore();
   const [words, setWords] = useState<VocabularyWord[]>([]);
+  const [categories, setCategories] = useState<WordCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterLang, setFilterLang] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [editWord, setEditWord] = useState<VocabularyWord | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  // Track whether we already kicked off a fill for this user in this session
+  const imageFillTriggered = useRef(false);
+
+  // Load category definitions once
+  useEffect(() => {
+    vocabularyApi.categories().then(setCategories).catch(() => {});
+  }, []);
 
   const loadWords = useCallback(async () => {
     setLoading(true);
@@ -29,6 +39,7 @@ export default function VocabularyPage() {
         search: search || undefined,
         target_language: filterLang || undefined,
         favorites_only: favoritesOnly || undefined,
+        category: selectedCategory || undefined,
       });
       setWords(data);
     } catch {
@@ -36,12 +47,53 @@ export default function VocabularyPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, search, filterLang, favoritesOnly]);
+  }, [currentUserId, search, filterLang, favoritesOnly, selectedCategory]);
 
   useEffect(() => {
     const t = setTimeout(loadWords, 300);
     return () => clearTimeout(t);
   }, [loadWords]);
+
+  // Compute per-category word counts from the full unfiltered list for the sidebar
+  const [allWords, setAllWords] = useState<VocabularyWord[]>([]);
+  useEffect(() => {
+    vocabularyApi
+      .list({ user_id: currentUserId })
+      .then((data) => {
+        setAllWords(data);
+        // Auto-fill images for words that still lack one (runs once per session per user)
+        const missing = data.filter((w) => !w.image_url).length;
+        if (missing > 0 && !imageFillTriggered.current) {
+          imageFillTriggered.current = true;
+          aiApi.fillMissingImages(currentUserId).then((res) => {
+            if (res.queued > 0) {
+              // Reload words after a short delay so newly generated images appear
+              setTimeout(() => {
+                vocabularyApi.list({ user_id: currentUserId }).then(setAllWords).catch(() => {});
+                loadWords();
+              }, 6000);
+            }
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const w of allWords) {
+      const key = w.category ?? "other";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [allWords]);
+
+  // Categories that actually have words
+  const activeCategories = useMemo(
+    () => categories.filter((c) => (categoryCounts[c.key] ?? 0) > 0),
+    [categories, categoryCounts]
+  );
 
   async function handleDelete(id: number) {
     if (!confirm("Really delete this word?")) return;
@@ -49,6 +101,7 @@ export default function VocabularyPage() {
       await vocabularyApi.delete(id);
       toast.success("Deleted");
       loadWords();
+      setAllWords((prev) => prev.filter((w) => w.id !== id));
     } catch {
       toast.error("Error deleting");
     }
@@ -87,21 +140,32 @@ export default function VocabularyPage() {
       });
       toast.success(`${result.added} new words added!`);
       loadWords();
+      // The backend also fills images for any existing words that lacked one;
+      // schedule a second reload so those images appear in the UI.
+      imageFillTriggered.current = false; // allow the allWords effect to re-run fill if needed
+      setTimeout(() => {
+        vocabularyApi.list({ user_id: currentUserId }).then(setAllWords).catch(() => {});
+        loadWords();
+      }, 6000);
     } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? "AI service unavailable. Check your MISTRAL_API_KEY.";
+      const detail: string = err?.response?.data?.detail ?? "";
+      const msg = detail || "AI service unavailable. Please try again in a moment.";
       toast.error(msg);
     } finally {
       setSuggesting(false);
     }
   }
 
+  const selectedCategoryLabel =
+    categories.find((c) => c.key === selectedCategory)?.label ?? "All Categories";
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Vocabulary</h1>
-          <p className="text-slate-400 text-sm mt-0.5">{words.length} entries</p>
+          <p className="text-slate-400 text-sm mt-0.5">{words.length} entries · {selectedCategoryLabel}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -123,73 +187,114 @@ export default function VocabularyPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <select
-            value={filterLang}
-            onChange={(e) => setFilterLang(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
-          >
-            <option value="">All languages</option>
-            {Object.entries(LANGUAGES).map(([code, name]) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={() => setFavoritesOnly((v) => !v)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-            favoritesOnly
-              ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400"
-              : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
-          }`}
-          title="Show favorites only"
-        >
-          <Star className={`h-4 w-4 ${favoritesOnly ? "fill-yellow-400 text-yellow-400" : ""}`} />
-          Favorites
-        </button>
-      </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Category Sidebar */}
+        <aside className="lg:w-56 shrink-0">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Folders</p>
+          <nav className="flex flex-row flex-wrap lg:flex-col gap-1">
+            {/* All */}
+            <button
+              onClick={() => setSelectedCategory("")}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left ${
+                selectedCategory === ""
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              {selectedCategory === "" ? <FolderOpen className="h-4 w-4 shrink-0" /> : <Folder className="h-4 w-4 shrink-0" />}
+              <span className="flex-1 truncate">All</span>
+              <span className="text-xs opacity-60">{allWords.length}</span>
+            </button>
 
-      {/* Word grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="bg-slate-800 border border-slate-700 rounded-xl h-28 animate-pulse"
-            />
-          ))}
+            {activeCategories.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setSelectedCategory(cat.key === selectedCategory ? "" : cat.key)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left ${
+                  selectedCategory === cat.key
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <span className="text-base leading-none">{WORD_CATEGORY_ICONS[cat.key] ?? "📦"}</span>
+                <span className="flex-1 truncate">{cat.label}</span>
+                <span className="text-xs opacity-60">{categoryCounts[cat.key] ?? 0}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <select
+                value={filterLang}
+                onChange={(e) => setFilterLang(e.target.value)}
+                className="bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors appearance-none"
+              >
+                <option value="">All languages</option>
+                {Object.entries(LANGUAGES).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => setFavoritesOnly((v) => !v)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                favoritesOnly
+                  ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-400"
+                  : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+              }`}
+              title="Show favorites only"
+            >
+              <Star className={`h-4 w-4 ${favoritesOnly ? "fill-yellow-400 text-yellow-400" : ""}`} />
+              Favorites
+            </button>
+          </div>
+
+          {/* Word grid */}
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-800 border border-slate-700 rounded-xl h-28 animate-pulse"
+                />
+              ))}
+            </div>
+          ) : words.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-slate-400 mb-2">No vocabulary words found</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+              >
+                Add your first word →
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {words.map((word) => (
+                <VocabCard key={word.id} word={word} onDelete={handleDelete} onEdit={handleEdit} onToggleFavorite={handleToggleFavorite} />
+              ))}
+            </div>
+          )}
         </div>
-      ) : words.length === 0 ? (
-        <div className="text-center py-20">
-          <p className="text-slate-400 mb-2">No vocabulary words found</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
-          >
-            Add your first word →
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {words.map((word) => (
-            <VocabCard key={word.id} word={word} onDelete={handleDelete} onEdit={handleEdit} onToggleFavorite={handleToggleFavorite} />
-          ))}
-        </div>
-      )}
+      </div>
 
       <AddWordModal
         userId={currentUserId}

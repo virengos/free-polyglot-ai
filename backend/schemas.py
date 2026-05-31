@@ -47,6 +47,7 @@ class WordCreate(BaseModel):
     word: str
     translation: str
     part_of_speech: Optional[str] = None
+    category: Optional[str] = None
     example_sentence: Optional[str] = None
     example_translation: Optional[str] = None
     synonyms: List[str] = []
@@ -57,6 +58,7 @@ class WordCreate(BaseModel):
 class WordUpdate(BaseModel):
     translation: Optional[str] = None
     part_of_speech: Optional[str] = None
+    category: Optional[str] = None
     example_sentence: Optional[str] = None
     example_translation: Optional[str] = None
     synonyms: Optional[List[str]] = None
@@ -74,6 +76,7 @@ class WordOut(BaseModel):
     word: str
     translation: str
     part_of_speech: Optional[str]
+    category: Optional[str]
     example_sentence: Optional[str]
     example_translation: Optional[str]
     image_url: Optional[str]

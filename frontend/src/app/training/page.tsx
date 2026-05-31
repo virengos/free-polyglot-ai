@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { trainingApi, vocabularyApi, usersApi, aiApi } from "@/lib/api";
-import type { VocabularyWord, ExerciseType, User } from "@/types";
+import type { VocabularyWord, ExerciseType, User, WordCategory } from "@/types";
+import { WORD_CATEGORY_ICONS } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import Flashcard from "@/components/exercises/Flashcard";
 import MultipleChoice from "@/components/exercises/MultipleChoice";
@@ -16,7 +17,6 @@ const ALL_EXERCISE_TYPES: ExerciseType[] = ["flashcard", "multiple_choice", "wri
 
 function pickExerciseType(word: VocabularyWord, allowed: ExerciseType[]): ExerciseType {
   const types = allowed.length > 0 ? allowed : ALL_EXERCISE_TYPES;
-  // New words → flashcard first (if allowed), else first in list
   if (word.repetitions === 0) {
     return types.includes("flashcard") ? "flashcard" : types[0];
   }
@@ -26,6 +26,8 @@ function pickExerciseType(word: VocabularyWord, allowed: ExerciseType[]): Exerci
 export default function TrainingPage() {
   const { currentUserId } = useAppStore();
   const [queue, setQueue] = useState<VocabularyWord[]>([]);
+  const [categories, setCategories] = useState<WordCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [index, setIndex] = useState(0);
   const [exerciseType, setExerciseType] = useState<ExerciseType>("flashcard");
   const [loading, setLoading] = useState(true);
@@ -36,11 +38,20 @@ export default function TrainingPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [hasAnyWords, setHasAnyWords] = useState(false);
 
+  // Load category definitions once
+  useEffect(() => {
+    vocabularyApi.categories().then(setCategories).catch(() => {});
+  }, []);
+
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
       const [words, userData] = await Promise.all([
-        trainingApi.queue({ user_id: currentUserId, limit: 20 }),
+        trainingApi.queue({
+          user_id: currentUserId,
+          limit: 20,
+          category: selectedCategory || undefined,
+        }),
         usersApi.get(currentUserId),
       ]);
       setUser(userData);
@@ -53,7 +64,6 @@ export default function TrainingPage() {
       if (words.length > 0) {
         setExerciseType(pickExerciseType(words[0], allowed));
       } else {
-        // Check if there are any words at all to offer "practice anyway"
         const all = await trainingApi.queue({ user_id: currentUserId, limit: 1, include_all: true });
         setHasAnyWords(all.length > 0);
       }
@@ -63,12 +73,17 @@ export default function TrainingPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, selectedCategory]);
 
   async function practiceAll() {
     setLoading(true);
     try {
-      const words = await trainingApi.queue({ user_id: currentUserId, limit: 20, include_all: true });
+      const words = await trainingApi.queue({
+        user_id: currentUserId,
+        limit: 20,
+        include_all: true,
+        category: selectedCategory || undefined,
+      });
       setQueue(words);
       setIndex(0);
       setCorrect(0);
@@ -95,7 +110,6 @@ export default function TrainingPage() {
         count: 8,
       });
       toast.success(`${result.added} new words added to your vocabulary!`);
-      // Reload queue – new words have repetitions=0, so they'll appear immediately
       loadQueue();
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? "AI service unavailable. Check your MISTRAL_API_KEY.";
@@ -155,6 +169,39 @@ export default function TrainingPage() {
     }
   }
 
+  // Category pill strip component
+  const CategoryStrip = () => (
+    <div className="w-full max-w-lg mx-auto mb-4">
+      <p className="text-xs text-slate-500 mb-2">Train by category:</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setSelectedCategory("")}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            selectedCategory === ""
+              ? "bg-indigo-600 text-white"
+              : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+          }`}
+        >
+          All
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.key}
+            onClick={() => setSelectedCategory(cat.key === selectedCategory ? "" : cat.key)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${
+              selectedCategory === cat.key
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-800 text-slate-400 hover:text-white border border-slate-700"
+            }`}
+          >
+            <span>{WORD_CATEGORY_ICONS[cat.key] ?? "📦"}</span>
+            <span>{cat.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -175,6 +222,7 @@ export default function TrainingPage() {
             ? "All your words are scheduled for a future review. Practice them anyway or let the AI suggest new ones."
             : "You have no vocabulary words yet. Let the AI suggest words to get started!"}
         </p>
+        <CategoryStrip />
         <div className="flex flex-col sm:flex-row gap-3">
           {hasAnyWords && (
             <button
@@ -255,6 +303,9 @@ export default function TrainingPage() {
 
   return (
     <div className="flex flex-col min-h-screen p-6">
+      {/* Category strip */}
+      <CategoryStrip />
+
       {/* Header */}
       <div className="max-w-lg mx-auto w-full mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -302,3 +353,4 @@ export default function TrainingPage() {
     </div>
   );
 }
+

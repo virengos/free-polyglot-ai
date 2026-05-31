@@ -24,6 +24,7 @@ export interface VocabularyWord {
   word: string;
   translation: string;
   part_of_speech: string | null;
+  category: string | null;
   example_sentence: string | null;
   example_translation: string | null;
   image_url: string | null;
@@ -131,6 +132,34 @@ export const CEFR_LEVELS: { value: string; label: string }[] = [
   { value: "C1", label: "C1 – Advanced" },
   { value: "C2", label: "C2 – Mastery" },
 ];
+
+export interface WordCategory {
+  key: string;
+  label: string;
+}
+
+export const WORD_CATEGORY_ICONS: Record<string, string> = {
+  animals:    "🐾",
+  food:       "🍽️",
+  clothing:   "👕",
+  household:  "🏠",
+  body:       "🫀",
+  nature:     "🌿",
+  people:     "👨‍👩‍👧",
+  work:       "💼",
+  travel:     "✈️",
+  emotions:   "❤️",
+  time:       "⏰",
+  health:     "🏥",
+  shopping:   "🛍️",
+  education:  "📚",
+  technology: "💻",
+  sports:     "⚽",
+  verbs:      "🏃",
+  adjectives: "✨",
+  phrases:    "💬",
+  other:      "📦",
+};
 
 export const EXERCISE_TYPES: { value: string; label: string }[] = [
   { value: "flashcard", label: "Flashcard" },

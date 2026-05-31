@@ -5,6 +5,7 @@ import type {
   TrainingSession,
   ProgressStats,
   ReviewResult,
+  WordCategory,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -42,12 +43,16 @@ export const usersApi = {
 // ─── Vocabulary ───────────────────────────────────────────────────────────────
 
 export const vocabularyApi = {
+  categories: () =>
+    api.get<WordCategory[]>("/api/words/categories").then((r) => r.data),
+
   list: (params: {
     user_id: number;
     source_language?: string;
     target_language?: string;
     search?: string;
     favorites_only?: boolean;
+    category?: string;
   }) =>
     api.get<VocabularyWord[]>("/api/words/", { params }).then((r) => r.data),
 
@@ -61,6 +66,7 @@ export const vocabularyApi = {
     word: string;
     translation: string;
     part_of_speech?: string;
+    category?: string;
     example_sentence?: string;
     example_translation?: string;
     synonyms?: string[];
@@ -73,8 +79,10 @@ export const vocabularyApi = {
     payload: Partial<{
       translation: string;
       part_of_speech: string;
+      category: string;
       example_sentence: string;
       example_translation: string;
+      image_url: string;
       synonyms: string[];
       tags: string[];
       notes: string;
@@ -100,6 +108,7 @@ export const trainingApi = {
     user_id: number;
     source_lang?: string;
     target_lang?: string;
+    category?: string;
     limit?: number;
     include_new?: boolean;
     include_all?: boolean;
@@ -156,6 +165,18 @@ export const aiApi = {
   }) =>
     api
       .post<{ added: number; words: VocabularyWord[] }>("/api/ai/suggest", payload)
+      .then((r) => r.data),
+
+  fillMissingImages: (user_id: number) =>
+    api
+      .post<{ queued: number; message: string }>("/api/ai/fill-missing-images", null, {
+        params: { user_id },
+      })
+      .then((r) => r.data),
+
+  generateImage: (word: string, language: string) =>
+    api
+      .post<{ url: string }>("/api/ai/image", null, { params: { word, language } })
       .then((r) => r.data),
 };
 

@@ -64,11 +64,11 @@ async def generate_word_info(payload: WordInfoRequest):
 
 @router.post("/image")
 async def generate_image(word: str = Query(...), language: str = Query(...)):
-    url = await ai_service.generate_word_image_url(word, language)
+    url = await ai_service.generate_word_image_url(word, language, force_new=True)
     if url is None:
         raise HTTPException(
             503,
-            "Image generation unavailable. Set OPENAI_API_KEY in backend/.env to enable this feature.",
+            "Image generation temporarily unavailable (rate limit or API error). Please try again in a moment.",
         )
     return {"url": url}
 
@@ -84,6 +84,42 @@ async def generate_story(payload: StoryRequest):
             "AI service unavailable. Set ANTHROPIC_API_KEY in backend/.env to enable this feature.",
         )
     return {"story": result}
+
+
+@router.post("/fill-missing-images")
+async def fill_missing_images(user_id: int = Query(...), db: Session = Depends(get_db)):
+    """Generate images for all vocabulary words that currently lack one."""
+    rows = (
+        db.query(VocabularyWord.id, VocabularyWord.word, VocabularyWord.source_language)
+        .filter(
+            VocabularyWord.user_id == user_id,
+            VocabularyWord.image_url == None,  # noqa: E711
+        )
+        .all()
+    )
+    if not rows:
+        return {"queued": 0, "message": "All words already have images."}
+
+    missing_data = [(r.id, r.word, r.source_language) for r in rows]
+
+    async def _fill():
+        from database import SessionLocal
+        for word_id, word_text, src_lang in missing_data:
+            img_url = await ai_service.generate_word_image_url(word_text, src_lang)
+            if img_url:
+                db2 = SessionLocal()
+                try:
+                    ww = db2.get(VocabularyWord, word_id)
+                    if ww and not ww.image_url:
+                        ww.image_url = img_url
+                        db2.commit()
+                finally:
+                    db2.close()
+            # Throttle to avoid Mistral rate limits during bulk generation
+            await asyncio.sleep(1.5)
+
+    asyncio.create_task(_fill())
+    return {"queued": len(missing_data), "message": f"Generating images for {len(missing_data)} words in the background."}
 
 
 @router.get("/status")
@@ -129,7 +165,7 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     if suggestions is None:
         raise HTTPException(
             503,
-            "AI service unavailable. Set MISTRAL_API_KEY in backend/.env to enable this feature.",
+            "AI service temporarily unavailable (rate limit or API error). Please try again in a few seconds.",
         )
 
     added = []
@@ -139,6 +175,9 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
         word_text = s.get("word", "").strip()
         if not word_text or word_text.lower() in existing_set:
             continue
+        cat = s.get("category", "").strip().lower() or None
+        if cat and cat not in ai_service.WORD_CATEGORIES:
+            cat = None
         word = VocabularyWord(
             user_id=payload.user_id,
             source_language=payload.source_language,
@@ -146,6 +185,7 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
             word=word_text,
             translation=s.get("translation", "").strip(),
             part_of_speech=s.get("part_of_speech") or None,
+            category=cat,
             example_sentence=s.get("example_sentence") or None,
             example_translation=s.get("example_translation") or None,
         )
@@ -156,5 +196,35 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     db.commit()
     for w in added:
         db.refresh(w)
+
+    # Collect IDs of ALL words missing images (newly added + pre-existing)
+    all_missing = (
+        db.query(VocabularyWord.id, VocabularyWord.word, VocabularyWord.source_language)
+        .filter(
+            VocabularyWord.user_id == payload.user_id,
+            VocabularyWord.image_url == None,  # noqa: E711
+        )
+        .all()
+    )
+    missing_data = [(r.id, r.word, r.source_language) for r in all_missing]
+
+    # Generate images for all words without one in the background
+    async def _generate_images():
+        from database import SessionLocal
+        for word_id, word_text, src_lang in missing_data:
+            img_url = await ai_service.generate_word_image_url(word_text, src_lang)
+            if img_url:
+                db2 = SessionLocal()
+                try:
+                    ww = db2.get(VocabularyWord, word_id)
+                    if ww and not ww.image_url:
+                        ww.image_url = img_url
+                        db2.commit()
+                finally:
+                    db2.close()
+            # Throttle to avoid Mistral rate limits during bulk generation
+            await asyncio.sleep(1.5)
+
+    asyncio.create_task(_generate_images())
 
     return {"added": len(added), "words": [WordOut.model_validate(w) for w in added]}

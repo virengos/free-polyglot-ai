@@ -1,8 +1,13 @@
+import logging
 import os
 import json
+import random
+import hashlib
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load backend/.env first, then fall back to root .env
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
@@ -15,6 +20,30 @@ LANGUAGE_NAMES = {
     "fr": "French",
     "sv": "Swedish",
     "pl": "Polish",
+}
+
+# Semantic vocabulary categories shown as folders in the UI
+WORD_CATEGORIES = {
+    "animals":    "Animals",
+    "food":       "Food & Drinks",
+    "clothing":   "Clothing",
+    "household":  "Household",
+    "body":       "Body",
+    "nature":     "Nature",
+    "people":     "People & Family",
+    "work":       "Work & Career",
+    "travel":     "Travel & Transport",
+    "emotions":   "Emotions",
+    "time":       "Time & Dates",
+    "health":     "Health",
+    "shopping":   "Shopping",
+    "education":  "Education",
+    "technology": "Technology",
+    "sports":     "Sports",
+    "verbs":      "Verbs",
+    "adjectives": "Adjectives & Adverbs",
+    "phrases":    "Phrases",
+    "other":      "Other",
 }
 
 _mistral_client = None
@@ -34,19 +63,33 @@ def _mistral_model() -> str:
     return os.getenv("LLM_MODEL", "mistral-large-latest")
 
 
-def _chat(prompt: str, max_tokens: int = 300) -> Optional[str]:
+def _is_rate_limited(exc: Exception) -> bool:
+    return "429" in str(exc) or "rate" in str(exc).lower()
+
+
+def _chat(prompt: str, max_tokens: int = 300, model: Optional[str] = None) -> Optional[str]:
     """Send a prompt to Mistral. Returns text or None."""
+    global _mistral_client
     mistral = _get_mistral()
     if not mistral:
+        logger.warning("Mistral client not available – MISTRAL_API_KEY missing or empty")
         return None
+    chosen_model = model or _mistral_model()
     try:
         resp = mistral.chat.complete(
-            model=_mistral_model(),
+            model=chosen_model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
         )
         return resp.choices[0].message.content.strip()
-    except Exception:
+    except Exception as exc:
+        if _is_rate_limited(exc):
+            logger.warning("Mistral rate limit (429) hit for model %s", chosen_model)
+        else:
+            logger.error("Mistral API call failed: %s", exc)
+        # Reset cached client on auth/connection failures so the next call retries
+        if any(kw in str(exc).lower() for kw in ("unauthorized", "401", "connection", "timeout")):
+            _mistral_client = None
         return None
 
 
@@ -88,9 +131,48 @@ async def generate_word_info(word: str, source_lang: str, target_lang: str) -> O
         return None
 
 
-async def generate_word_image_url(word: str, language: str) -> Optional[str]:
-    """Image generation requires DALL-E; not available with Mistral-only setup."""
-    return None
+async def generate_word_image_url(word: str, language: str, force_new: bool = False) -> Optional[str]:
+    """Use Mistral to find the best English keyword, then return a LoremFlickr URL."""
+    lang_name = LANGUAGE_NAMES.get(language, language)
+    prompt = (
+        f"The {lang_name} vocabulary word is '{word}'. "
+        "What is the single best English keyword (1-2 words, lowercase, no articles) "
+        "to search for an image that visually represents this word? "
+        "Reply with ONLY the keyword, nothing else."
+    )
+    # Use the small/fast model for this trivial single-keyword task to preserve
+    # rate-limit quota on the larger model for more complex operations.
+    keyword = _chat(prompt, max_tokens=20, model="mistral-small-latest")
+    if not keyword:
+        return None
+    # Clean up the keyword – strip quotes, punctuation, limit length
+    keyword = keyword.strip().strip("\"'.,;").replace(" ", "+")[:40]
+    if not keyword:
+        return None
+    # For explicit regeneration use a random lock so a different image is returned.
+    # For initial generation use a stable hash so the same image is always picked.
+    if force_new:
+        lock = random.randint(0, 9999)
+    else:
+        lock = int(hashlib.md5(word.encode()).hexdigest()[:8], 16) % 10000
+    return f"https://loremflickr.com/400/300/{keyword}?lock={lock}"
+
+
+async def classify_word_category(word: str, translation: str, part_of_speech: Optional[str], language: str) -> Optional[str]:
+    """Ask Mistral to assign one of the predefined semantic categories to the word."""
+    categories = ", ".join(WORD_CATEGORIES.keys())
+    lang_name = LANGUAGE_NAMES.get(language, language)
+    prompt = (
+        f"Classify the {lang_name} vocabulary word '{word}' (translation: '{translation}', "
+        f"part of speech: '{part_of_speech or 'unknown'}') into exactly one of these categories:\n"
+        f"{categories}\n"
+        "Reply with ONLY the category key, nothing else."
+    )
+    raw = _chat(prompt, max_tokens=20, model="mistral-small-latest")
+    if not raw:
+        return None
+    cat = raw.strip().lower().strip("\"'.,;")
+    return cat if cat in WORD_CATEGORIES else None
 
 
 async def generate_context_story(words: list[str], language: str) -> Optional[str]:
@@ -128,7 +210,8 @@ async def suggest_vocabulary(
         f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words at beginner/intermediate level. "
         "Do not repeat words already in the list. "
         "Return ONLY a JSON array with no extra text:\n"
-        '[{"word":"...","translation":"...","part_of_speech":"...","example_sentence":"...","example_translation":"..."}]'
+        '[{"word":"...","translation":"...","part_of_speech":"...","category":"...","example_sentence":"...","example_translation":"..."}]\n'
+        f'Valid categories: {", ".join(WORD_CATEGORIES.keys())}'
     )
 
     raw = _chat(prompt, max_tokens=1200)

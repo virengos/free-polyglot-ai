@@ -29,6 +29,7 @@ def _run_migrations():
         word_cols = {c["name"] for c in inspector.get_columns("vocabulary_words")}
         word_migrations = [
             ("is_favorite", "ALTER TABLE vocabulary_words ADD COLUMN is_favorite BOOLEAN DEFAULT 0"),
+            ("category",    "ALTER TABLE vocabulary_words ADD COLUMN category TEXT"),
         ]
         for col, sql in word_migrations:
             if col not in word_cols:
