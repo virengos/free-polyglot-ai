@@ -7,7 +7,7 @@ import { WORD_CATEGORY_ICONS, LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import VocabCard from "@/components/VocabCard";
 import AddWordModal from "@/components/AddWordModal";
-import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder, Lock } from "lucide-react";
+import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder, Lock, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function VocabularyPage() {
@@ -22,6 +22,7 @@ export default function VocabularyPage() {
   const [showModal, setShowModal] = useState(false);
   const [editWord, setEditWord] = useState<VocabularyWord | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
   // Track whether we already kicked off a fill for this user in this session
   const imageFillTriggered = useRef(false);
 
@@ -125,6 +126,28 @@ export default function VocabularyPage() {
     setEditWord(null);
   }
 
+  async function handleReclassifyOthers() {
+    const othersCount = categoryCounts["other"] ?? 0;
+    if (othersCount === 0) {
+      toast("No words in the Other folder.");
+      return;
+    }
+    setReclassifying(true);
+    try {
+      const res = await aiApi.reclassifyOthers(currentUserId);
+      toast.success(res.message);
+      // Reload after a delay so reclassified words appear in their new folders
+      setTimeout(() => {
+        vocabularyApi.list({ user_id: currentUserId }).then(setAllWords).catch(() => {});
+        loadWords();
+      }, 8000);
+    } catch {
+      toast.error("Reclassification failed. Please try again.");
+    } finally {
+      setReclassifying(false);
+    }
+  }
+
   async function handleSuggestWords() {
     setSuggesting(true);
     try {
@@ -170,6 +193,17 @@ export default function VocabularyPage() {
           <p className="text-slate-400 text-sm mt-0.5">{words.length} entries · {selectedCategoryLabel}</p>
         </div>
         <div className="flex gap-2">
+          {(categoryCounts["other"] ?? 0) > 0 && (
+            <button
+              onClick={handleReclassifyOthers}
+              disabled={reclassifying}
+              className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors border border-slate-600"
+              title={`Re-classify ${categoryCounts["other"]} word(s) from the Other folder into the correct categories`}
+            >
+              <RefreshCw className={`h-4 w-4 ${reclassifying ? "animate-spin" : ""}`} />
+              {reclassifying ? "Reclassifying…" : `Sort Others (${categoryCounts["other"]})`}
+            </button>
+          )}
           <button
             onClick={handleSuggestWords}
             disabled={suggesting}

@@ -7,6 +7,7 @@ import type { VocabularyWord } from "@/types";
 import { cn } from "@/lib/utils";
 import { LANGUAGE_FLAGS } from "@/types";
 import { speak } from "@/lib/tts";
+import SpecialCharsBar, { insertAtCursor } from "@/components/SpecialCharsBar";
 
 interface WriteExerciseProps {
   word: VocabularyWord;
@@ -69,13 +70,13 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
         </div>
         {word.example_sentence && (
           <p className="text-slate-500 text-sm mt-3 italic">
-            Context: „{word.example_sentence}“
+            Context: „{word.example_sentence}"
           </p>
         )}
       </div>
 
       {/* Input form */}
-      <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
         <input
           ref={inputRef}
           value={input}
@@ -89,6 +90,15 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
             submitted && !correct && "border-red-500 bg-red-900/20"
           )}
         />
+
+        {/* Special character bar — shown only when not yet submitted */}
+        {!submitted && (
+          <SpecialCharsBar
+            language={word.target_language}
+            onInsert={(char) => insertAtCursor(inputRef, char, input, setInput)}
+          />
+        )}
+
         {!submitted && (
           <button
             type="submit"
@@ -131,3 +141,5 @@ export default function WriteExercise({ word, onResult }: WriteExerciseProps) {
     </div>
   );
 }
+
+

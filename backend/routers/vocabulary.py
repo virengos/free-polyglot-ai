@@ -41,7 +41,15 @@ def list_words(
     if favorites_only:
         q = q.filter(VocabularyWord.is_favorite == True)
     if category:
-        q = q.filter(VocabularyWord.category == category)
+        # "other" is the catch-all bucket: include words explicitly set to
+        # "other" AND words where category is still NULL (not yet classified).
+        if category == "other":
+            from sqlalchemy import or_
+            q = q.filter(
+                or_(VocabularyWord.category == "other", VocabularyWord.category == None)  # noqa: E711
+            )
+        else:
+            q = q.filter(VocabularyWord.category == category)
     return q.order_by(VocabularyWord.category.asc(), VocabularyWord.created_at.desc()).all()
 
 

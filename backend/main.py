@@ -8,7 +8,7 @@ load_dotenv()
 
 from database import engine
 from models import Base
-from routers import vocabulary, training, progress, ai, tts, audit
+from routers import vocabulary, training, progress, ai, tts, audit, conversations
 
 
 def _run_migrations():
@@ -81,6 +81,7 @@ app.include_router(progress.router)
 app.include_router(ai.router)
 app.include_router(tts.router)
 app.include_router(audit.router)
+app.include_router(conversations.router)
 
 
 @app.get("/")

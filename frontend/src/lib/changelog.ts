@@ -7,6 +7,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "1.8.0",
+    date: "2026-05-31",
+    features: [
+      "Conversations page: practise everyday topics with AI-generated fill-in-the-blank exercises (age, origin, profession, hobbies, morning routine, family, food, weekend)",
+      "Conversations sidebar entry with MessageSquare icon",
+      "Special characters bar in the Write exercise — inserts accented letters (é, ü, ñ, …) at cursor position for the active target language",
+      "Vocabulary folder: 'Sort Others' button reclassifies all words still sitting in the Other folder into their correct semantic categories using AI",
+      "AI suggest now preferentially fills underrepresented vocabulary categories (sparse category hints)",
+    ],
+    bugfixes: [
+      "Write exercise input gap reduced for a tighter layout",
+    ],
+  },
+  {
     version: "1.7.0",
     date: "2026-05-31",
     features: [

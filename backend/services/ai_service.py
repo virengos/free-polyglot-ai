@@ -187,12 +187,84 @@ async def generate_context_story(words: list[str], language: str) -> Optional[st
     return _chat(prompt, max_tokens=400)
 
 
+async def generate_fill_in_blank(
+    topic: str,
+    target_language: str,
+    source_language: str = "de",
+    level: str = "A2",
+) -> Optional[dict]:
+    """Generate a fill-in-the-blank conversation exercise for a given topic."""
+    lang_name = LANGUAGE_NAMES.get(target_language, target_language)
+    source_lang_name = LANGUAGE_NAMES.get(source_language, source_language)
+
+    topic_descriptions = {
+        "age":             "introducing yourself and talking about your age",
+        "origin":          "talking about where you come from, your hometown and country",
+        "profession":      "talking about your job and career",
+        "hobbies":         "talking about hobbies and free time activities",
+        "morning_routine": "describing your morning routine (getting up, breakfast, etc.)",
+        "family":          "talking about your family members",
+        "food":            "talking about your favourite foods and eating habits",
+        "weekend":         "describing what you do on weekends",
+    }
+
+    description = topic_descriptions.get(topic, topic)
+
+    prompt = (
+        f"Create a fill-in-the-blank vocabulary exercise in {lang_name} "
+        f"for a {level} learner.\n"
+        f"Topic: {description}\n\n"
+        "STRICT RULES:\n"
+        "1. Write 3-5 short first-person sentences about the topic.\n"
+        "2. Choose 4-6 blanks. ONLY blank out vocabulary/grammar words "
+        "(verbs, prepositions, adjectives, adverbs, nouns). "
+        "NEVER blank out a number, a name, or unique personal detail — "
+        "the learner cannot guess those. "
+        "Good examples: verb form, preposition, adjective, noun.\n"
+        "3. For each blank, provide a short English hint (2-4 words) describing "
+        "the word type/category, e.g. 'verb (to have)', 'preposition', "
+        "'adjective (size)', 'noun (family member)'.\n"
+        "4. Return ONLY valid JSON, no markdown fences:\n"
+        '{"text":"Je ___ étudiant. Je ___ de Berlin.","blanks":["suis","viens"],'
+        '"blank_hints":["verb (être)","verb (venir)"],'
+        f'"translation":"{source_lang_name}: Ich bin Student. Ich komme aus Berlin.",'
+        '"hint":"Fill in the missing grammar words."}\n\n'
+        "blank_hints must have exactly the same length as blanks."
+    )
+
+    raw = _chat(prompt, max_tokens=700)
+    if not raw:
+        return None
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = json.loads(text.strip())
+        if "text" not in data or "blanks" not in data:
+            return None
+        # Validate blank count matches answer count
+        blank_count = data["text"].count("___")
+        if blank_count != len(data["blanks"]):
+            return None
+        # Ensure blank_hints has the right length (pad or trim if AI got it wrong)
+        hints = data.get("blank_hints", [])
+        if len(hints) != blank_count:
+            data["blank_hints"] = (hints + [""] * blank_count)[:blank_count]
+        return data
+    except Exception:
+        logger.error("Failed to parse fill-in-the-blank JSON for topic=%s lang=%s", topic, target_language)
+        return None
+
+
 async def suggest_vocabulary(
     existing_words: list[dict],
     source_lang: str,
     target_lang: str,
     count: int = 5,
     proficiency_level: str = "A2",
+    sparse_categories: list[str] | None = None,
 ) -> Optional[list[dict]]:
     """Ask the AI to suggest new vocabulary words based on existing ones."""
     src = LANGUAGE_NAMES.get(source_lang, source_lang)
@@ -227,11 +299,20 @@ async def suggest_vocabulary(
             + ". "
         )
 
+    # Build a hint for sparse categories so the AI prefers to fill them up
+    sparse_hint = ""
+    if sparse_categories:
+        sparse_hint = (
+            f"IMPORTANT: The following vocabulary categories are still sparse (fewer than 5 words). "
+            f"Prefer words from these categories: {", ".join(sparse_categories[:10])}. "
+        )
+
     prompt = (
         f"A language learner is learning {tgt} from {src}. "
         f"Their current proficiency in {tgt} is {cefr_description}. "
         f"{context}"
         f"{exclusion}"
+        f"{sparse_hint}"
         f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words appropriate for {cefr_description} level "
         "that are not already in the exclusion list. "
         "Return ONLY a JSON array with no extra text:\n"

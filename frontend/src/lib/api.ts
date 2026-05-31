@@ -175,6 +175,13 @@ export const aiApi = {
       })
       .then((r) => r.data),
 
+  reclassifyOthers: (user_id: number) =>
+    api
+      .post<{ queued: number; message: string }>("/api/ai/reclassify-others", null, {
+        params: { user_id },
+      })
+      .then((r) => r.data),
+
   generateImage: (word: string, language: string) =>
     api
       .post<{ url: string }>("/api/ai/image", null, { params: { word, language } })
@@ -230,6 +237,39 @@ export const auditApi = {
     api.get<AuditLicenseResult>("/api/audit/licenses").then((r) => r.data),
   compliance: () =>
     api.get<ComplianceResult>("/api/audit/compliance").then((r) => r.data),
+};
+
+// ─── Conversations ────────────────────────────────────────────────────────────
+
+export interface ConversationTopic {
+  id: string;
+  label: string;
+  emoji: string;
+  title_en: string;
+}
+
+export interface FillInBlankExercise {
+  text: string;             // e.g. "Je ___ étudiant. Je ___ de Berlin."
+  blanks: string[];         // answers in order
+  blank_hints?: string[];   // per-blank context labels, e.g. ["verb (être)", "verb (venir)"]
+  translation: string;
+  hint: string;
+}
+
+export const conversationsApi = {
+  topics: () =>
+    api.get<ConversationTopic[]>("/api/conversations/topics").then((r) => r.data),
+
+  exercise: (payload: {
+    user_id: number;
+    topic: string;
+    target_language: string;
+    source_language?: string;
+    level?: string;
+  }) =>
+    api
+      .post<FillInBlankExercise>("/api/conversations/exercise", payload)
+      .then((r) => r.data),
 };
 
 export default api;

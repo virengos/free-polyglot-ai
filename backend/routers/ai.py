@@ -123,6 +123,43 @@ async def fill_missing_images(user_id: int = Query(...), db: Session = Depends(g
     return {"queued": len(missing_data), "message": f"Generating images for {len(missing_data)} words in the background."}
 
 
+@router.post("/reclassify-others")
+async def reclassify_others(user_id: int = Query(...), db: Session = Depends(get_db)):
+    """Re-classify all words currently in the 'Other' folder using AI and move them to the correct category."""
+    from sqlalchemy import or_
+    rows = (
+        db.query(VocabularyWord.id, VocabularyWord.word, VocabularyWord.translation,
+                 VocabularyWord.part_of_speech, VocabularyWord.source_language)
+        .filter(
+            VocabularyWord.user_id == user_id,
+            or_(VocabularyWord.category == "other", VocabularyWord.category == None),  # noqa: E711
+        )
+        .all()
+    )
+    if not rows:
+        return {"queued": 0, "message": "No words in the Other folder to reclassify."}
+
+    word_data = [(r.id, r.word, r.translation, r.part_of_speech, r.source_language) for r in rows]
+
+    async def _reclassify():
+        from database import SessionLocal
+        for word_id, word_text, translation, pos, src_lang in word_data:
+            new_cat = await ai_service.classify_word_category(word_text, translation, pos, src_lang)
+            if new_cat and new_cat != "other":
+                db2 = SessionLocal()
+                try:
+                    ww = db2.get(VocabularyWord, word_id)
+                    if ww:
+                        ww.category = new_cat
+                        db2.commit()
+                finally:
+                    db2.close()
+            await asyncio.sleep(0.8)
+
+    asyncio.create_task(_reclassify())
+    return {"queued": len(word_data), "message": f"Reclassifying {len(word_data)} words in the background."}
+
+
 @router.get("/status")
 def ai_status():
     """Check which AI features are available."""
@@ -157,6 +194,25 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     # Pass the most recent words as context for the AI (sample, not all)
     existing_words = [{"word": w.word, "translation": w.translation} for w in all_existing[:30]]
 
+    # Identify categories that are underrepresented (fewer than 5 words)
+    from sqlalchemy import func
+    category_counts = (
+        db.query(VocabularyWord.category, func.count(VocabularyWord.id))
+        .filter(
+            VocabularyWord.user_id == payload.user_id,
+            VocabularyWord.source_language == payload.source_language,
+            VocabularyWord.category != None,  # noqa: E711
+        )
+        .group_by(VocabularyWord.category)
+        .all()
+    )
+    existing_category_counts = {cat: cnt for cat, cnt in category_counts}
+    SPARSE_THRESHOLD = 5
+    sparse_categories = [
+        cat for cat in ai_service.WORD_CATEGORIES
+        if existing_category_counts.get(cat, 0) < SPARSE_THRESHOLD
+    ]
+
     # Use explicitly provided level, else fall back to the user's stored proficiency
     proficiency = (
         payload.proficiency_level
@@ -170,6 +226,7 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
         payload.target_language,
         payload.count,
         proficiency_level=proficiency,
+        sparse_categories=sparse_categories,
     )
 
     if suggestions is None:
