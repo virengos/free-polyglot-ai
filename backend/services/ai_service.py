@@ -192,23 +192,48 @@ async def suggest_vocabulary(
     source_lang: str,
     target_lang: str,
     count: int = 5,
+    proficiency_level: str = "A2",
 ) -> Optional[list[dict]]:
     """Ask the AI to suggest new vocabulary words based on existing ones."""
     src = LANGUAGE_NAMES.get(source_lang, source_lang)
     tgt = LANGUAGE_NAMES.get(target_lang, target_lang)
 
-    sample = existing_words[:15]
+    # Map CEFR level to human-readable description for the prompt
+    cefr_description = {
+        "A1": "absolute beginner (A1)",
+        "A2": "elementary (A2)",
+        "B1": "intermediate (B1)",
+        "B2": "upper-intermediate (B2)",
+        "C1": "advanced (C1)",
+        "C2": "proficient/native-level (C2)",
+    }.get(proficiency_level.upper(), f"level {proficiency_level}")
+
+    # Use up to 30 words as AI context; pass all words as an explicit exclusion list
+    sample = existing_words[:30]
     if sample:
         word_list = ", ".join(f'"{w["word"]}" ({w["translation"]})' for w in sample)
         context = f"They already know these words: {word_list}. "
     else:
         context = ""
 
+    # Build a compact exclusion list of just the source words so the AI
+    # cannot re-suggest any of them regardless of how many the user has.
+    all_words = [w["word"] for w in existing_words]
+    exclusion = ""
+    if all_words:
+        exclusion = (
+            "IMPORTANT: Do NOT suggest any of the following words (exact or close variants): "
+            + ", ".join(f'"{w}"' for w in all_words)
+            + ". "
+        )
+
     prompt = (
         f"A language learner is learning {tgt} from {src}. "
+        f"Their current proficiency in {tgt} is {cefr_description}. "
         f"{context}"
-        f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words at beginner/intermediate level. "
-        "Do not repeat words already in the list. "
+        f"{exclusion}"
+        f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words appropriate for {cefr_description} level "
+        "that are not already in the exclusion list. "
         "Return ONLY a JSON array with no extra text:\n"
         '[{"word":"...","translation":"...","part_of_speech":"...","category":"...","example_sentence":"...","example_translation":"..."}]\n'
         f'Valid categories: {", ".join(WORD_CATEGORIES.keys())}'

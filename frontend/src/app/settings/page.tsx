@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usersApi } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { usersApi, auditApi } from "@/lib/api";
+import type { AuditLicenseResult, ComplianceResult } from "@/lib/api";
 import { useAppStore } from "@/store/appStore";
 import {
   LANGUAGES,
@@ -9,7 +10,21 @@ import {
   CEFR_LEVELS,
   EXERCISE_TYPES,
 } from "@/types";
-import { CheckCircle2, Globe, Target, BookOpen, Save } from "lucide-react";
+import {
+  CheckCircle2,
+  Globe,
+  Target,
+  BookOpen,
+  Save,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  XCircle,
+  ExternalLink,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Draft = {
@@ -26,6 +41,33 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // ── Audit state ────────────────────────────────────────────────────────────
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [licenseData, setLicenseData] = useState<AuditLicenseResult | null>(null);
+  const [complianceData, setComplianceData] = useState<ComplianceResult | null>(null);
+  const [auditTab, setAuditTab] = useState<"licenses" | "compliance">("licenses");
+  // lifted so filter/search survive tab-switches and re-renders of LicenseTab
+  const [licenseFilter, setLicenseFilter] = useState<"all" | "review" | "restricted">("all");
+  const [licenseSearch, setLicenseSearch] = useState("");
+
+  async function loadAudit() {
+    setAuditLoading(true);
+    try {
+      const [lic, comp] = await Promise.all([auditApi.licenses(), auditApi.compliance()]);
+      setLicenseData(lic);
+      setComplianceData(comp);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function handleToggleAudit() {
+    const next = !auditOpen;
+    setAuditOpen(next);
+    if (next && !licenseData) loadAudit();
+  }
 
   useEffect(() => {
     usersApi.get(currentUserId).then((user) => {
@@ -269,6 +311,77 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-500 mt-2">At least one type must be selected.</p>
       </section>
 
+      {/* ── Audit ─────────────────────────────────────────────────────────── */}
+      <section className="mb-10">
+        <button
+          onClick={handleToggleAudit}
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border border-slate-700 bg-slate-800/60 hover:border-slate-500 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-cyan-400" />
+            <div className="text-left">
+              <p className="font-semibold text-white">Audit</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Open-source licence compliance &amp; feature-originality check
+              </p>
+            </div>
+          </div>
+          {auditOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+          )}
+        </button>
+
+        {auditOpen && (
+          <div className="mt-3 border border-slate-700 rounded-2xl overflow-hidden">
+            {/* Tab bar */}
+            <div className="flex border-b border-slate-700">
+              {(["licenses", "compliance"] as const).map((tab) => (
+                <button
+                  type="button"
+                  key={tab}
+                  onClick={() => setAuditTab(tab)}
+                  className={cn(
+                    "flex-1 py-2.5 text-sm font-medium transition-colors",
+                    auditTab === tab
+                      ? "bg-slate-700 text-white"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  )}
+                >
+                  {tab === "licenses" ? "Dependency Licences" : "Feature Originality"}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={loadAudit}
+                disabled={auditLoading}
+                title="Refresh"
+                className="px-4 text-slate-400 hover:text-white transition-colors border-l border-slate-700"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", auditLoading && "animate-spin")} />
+              </button>
+            </div>
+
+            {auditLoading && !licenseData ? (
+              <div className="p-6 text-center text-slate-400 text-sm animate-pulse">
+                Running audit…
+              </div>
+            ) : auditTab === "licenses" && licenseData ? (
+              <LicenseTab
+                data={licenseData}
+                filter={licenseFilter}
+                onFilterChange={setLicenseFilter}
+                search={licenseSearch}
+                onSearchChange={setLicenseSearch}
+              />
+            ) : auditTab === "compliance" && complianceData ? (
+              <ComplianceTab data={complianceData} />
+            ) : null}
+          </div>
+        )}
+      </section>
+
       {/* ── Save button ───────────────────────────────────────────────────── */}
       <button
         onClick={handleSave}
@@ -290,6 +403,224 @@ export default function SettingsPage() {
           </>
         )}
       </button>
+    </div>
+  );
+}
+
+// ── Audit sub-components ──────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: "approved" | "review" | "restricted" | "pass" | "warning" | "fail" }) {
+  const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+    approved: { label: "Approved", cls: "bg-emerald-900/40 text-emerald-400 border-emerald-700", icon: <CheckCircle2 className="h-3 w-3" /> },
+    pass:     { label: "Pass",     cls: "bg-emerald-900/40 text-emerald-400 border-emerald-700", icon: <CheckCircle2 className="h-3 w-3" /> },
+    review:   { label: "Review",   cls: "bg-amber-900/40  text-amber-400  border-amber-700",    icon: <AlertTriangle  className="h-3 w-3" /> },
+    warning:  { label: "Warning",  cls: "bg-amber-900/40  text-amber-400  border-amber-700",    icon: <AlertTriangle  className="h-3 w-3" /> },
+    restricted:{ label: "Restricted", cls: "bg-red-900/40 text-red-400   border-red-700",      icon: <XCircle        className="h-3 w-3" /> },
+    fail:     { label: "Fail",     cls: "bg-red-900/40   text-red-400    border-red-700",       icon: <XCircle        className="h-3 w-3" /> },
+  };
+  const { label, cls, icon } = map[status] ?? map.review;
+  return (
+    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold", cls)}>
+      {icon}{label}
+    </span>
+  );
+}
+
+function OverallBanner({ overall, label }: { overall: "pass" | "warning" | "fail"; label: string }) {
+  const map = {
+    pass:    "bg-emerald-900/30 border-emerald-700 text-emerald-300",
+    warning: "bg-amber-900/30  border-amber-700  text-amber-300",
+    fail:    "bg-red-900/30    border-red-700    text-red-300",
+  };
+  return (
+    <div className={cn("flex items-center gap-2 px-4 py-3 border-b text-sm font-medium", map[overall])}>
+      {overall === "pass" && <CheckCircle2 className="h-4 w-4" />}
+      {overall === "warning" && <AlertTriangle className="h-4 w-4" />}
+      {overall === "fail" && <XCircle className="h-4 w-4" />}
+      {label}
+    </div>
+  );
+}
+
+function LicenseTab({
+  data,
+  filter,
+  onFilterChange,
+  search,
+  onSearchChange,
+}: {
+  data: import("@/lib/api").AuditLicenseResult;
+  filter: "all" | "review" | "restricted";
+  onFilterChange: (f: "all" | "review" | "restricted") => void;
+  search: string;
+  onSearchChange: (s: string) => void;
+}) {
+  const { summary, packages } = data;
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // scroll list to top whenever filter or search changes
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [filter, search]);
+
+  const q = search.toLowerCase();
+  const visible = packages.filter((p) => {
+    const matchesFilter = filter === "all" ? true : p.status === filter;
+    const matchesSearch = q === "" || p.name.toLowerCase().includes(q) || p.license.toLowerCase().includes(q);
+    return matchesFilter && matchesSearch;
+  });
+
+  const summaryLabel = summary.overall === "pass"
+    ? `All ${summary.total} packages use approved licences.`
+    : summary.overall === "warning"
+    ? `${summary.review} package(s) need licence review — click \"Review\" to inspect.`
+    : `${summary.restricted} restricted package(s) detected!`;
+
+  // clicking the warning banner pre-selects the review filter
+  function handleBannerClick() {
+    if (summary.overall === "warning") onFilterChange("review");
+    if (summary.overall === "fail")    onFilterChange("restricted");
+  }
+
+  return (
+    <div>
+      <div
+        role={summary.overall !== "pass" ? "button" : undefined}
+        tabIndex={summary.overall !== "pass" ? 0 : undefined}
+        onClick={summary.overall !== "pass" ? handleBannerClick : undefined}
+        onKeyDown={summary.overall !== "pass" ? (e) => e.key === "Enter" && handleBannerClick() : undefined}
+        className={summary.overall !== "pass" ? "cursor-pointer" : ""}
+      >
+        <OverallBanner overall={summary.overall} label={summaryLabel} />
+      </div>
+
+      {/* filter buttons + search */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-slate-700 bg-slate-800/40">
+        {(["all", "review", "restricted"] as const).map((f) => (
+          <button
+            type="button"
+            key={f}
+            onClick={() => onFilterChange(f)}
+            className={cn(
+              "px-3 py-1 rounded-lg text-xs font-medium border transition-colors",
+              filter === f
+                ? "border-indigo-500 bg-indigo-600/30 text-white"
+                : "border-slate-600 bg-slate-700 text-slate-300 hover:border-slate-400"
+            )}
+          >
+            {f === "all"
+              ? `All (${summary.total})`
+              : f === "review"
+              ? `Review (${summary.review})`
+              : `Restricted (${summary.restricted})`}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-1.5 bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-1">
+          <Search className="h-3 w-3 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            placeholder="Search packages…"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="bg-transparent text-xs text-white placeholder-slate-500 outline-none w-36"
+          />
+        </div>
+      </div>
+
+      {/* count indicator */}
+      <div className="px-4 py-1.5 bg-slate-800/20 border-b border-slate-700/50">
+        <span className="text-xs text-slate-500">
+          Showing <span className="text-slate-300 font-medium">{visible.length}</span> of{" "}
+          <span className="text-slate-300 font-medium">{summary.total}</span> packages
+        </span>
+      </div>
+
+      <div ref={listRef} className="max-h-72 overflow-y-auto divide-y divide-slate-700/60">
+        {visible.length === 0 ? (
+          <p className="px-4 py-6 text-center text-slate-500 text-sm">No packages match the current filter.</p>
+        ) : (
+          visible.map((pkg) => (
+            <div key={pkg.name} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium truncate">{pkg.name}</p>
+                <p className="text-xs text-slate-400">{pkg.license}</p>
+              </div>
+              <span className="text-xs text-slate-500 shrink-0">{pkg.version}</span>
+              <StatusBadge status={pkg.status} />
+              {pkg.home && (
+                <a href={pkg.home} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-slate-300">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      <p className="px-4 py-2 text-xs text-slate-500 border-t border-slate-700">
+        Licence data sourced from installed Python package metadata (importlib.metadata).
+      </p>
+    </div>
+  );
+}
+
+function ComplianceTab({ data }: { data: import("@/lib/api").ComplianceResult }) {
+  const { summary, items } = data;
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const summaryLabel = summary.overall === "pass"
+    ? `All ${summary.total} features pass the originality check.`
+    : summary.overall === "warning"
+    ? `${summary.warning} feature(s) need review.`
+    : `${summary.fail} feature(s) failed the originality check!`;
+
+  const riskColor: Record<string, string> = {
+    low:    "text-emerald-400",
+    medium: "text-amber-400",
+    high:   "text-red-400",
+  };
+
+  return (
+    <div>
+      <OverallBanner overall={summary.overall} label={summaryLabel} />
+      <div className="divide-y divide-slate-700/60">
+        {items.map((item) => (
+          <div key={item.id}>
+            <button
+              onClick={() => setExpanded(expanded === item.id ? null : item.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-800/50 transition-colors"
+            >
+              <StatusBadge status={item.status} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white font-medium">{item.feature}</p>
+                <p className="text-xs text-slate-400 truncate">Ref: {item.reference}</p>
+              </div>
+              <span className={cn("text-xs font-semibold shrink-0", riskColor[item.risk])}>
+                {item.risk} risk
+              </span>
+              {expanded === item.id ? (
+                <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              )}
+            </button>
+            {expanded === item.id && (
+              <div className="px-4 pb-4 bg-slate-800/30 space-y-2">
+                <p className="text-xs text-slate-400">
+                  <span className="font-semibold text-slate-300">Commercial reference: </span>
+                  {item.reference} ({item.reference_license})
+                </p>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  <span className="font-semibold">Our approach: </span>
+                  {item.our_approach}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="px-4 py-2 text-xs text-slate-500 border-t border-slate-700">
+        This checklist documents independent development. It does not constitute legal advice.
+      </p>
     </div>
   );
 }

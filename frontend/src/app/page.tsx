@@ -72,7 +72,7 @@ export default function DashboardPage() {
           label="Streak"
           value={`${stats.streak_days}d`}
           icon={<Flame className="h-4 w-4 text-orange-400" />}
-          sublabel="day streak"
+          sublabel={stats.streak_days === 0 ? "Train today to start!" : "day streak"}
         />
         <StatCard
           label="Vocabulary"
@@ -84,9 +84,24 @@ export default function DashboardPage() {
           label="Accuracy"
           value={`${accuracy}%`}
           icon={<Target className="h-4 w-4" />}
-          sublabel={`${stats.total_reviews} reviews`}
+          sublabel={stats.total_reviews === 0 ? "No reviews yet" : `${stats.total_reviews} reviews`}
         />
       </div>
+
+      {/* Call-to-action when no reviews done yet */}
+      {stats.total_reviews === 0 && stats.total_words > 0 && (
+        <div className="bg-indigo-900/40 border border-indigo-700 rounded-2xl p-4 mb-6 flex items-start gap-3">
+          <TrendingUp className="h-5 w-5 text-indigo-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-indigo-200">Start training to see your stats!</p>
+            <p className="text-xs text-indigo-300 mt-0.5">
+              XP, streak, and accuracy are earned through training sessions. Words become{" "}
+              <span className="text-emerald-400 font-medium">Mastered</span> after multiple correct
+              reviews over several days — just like Anki.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 mb-6">
         <div className="flex items-center justify-between mb-4">

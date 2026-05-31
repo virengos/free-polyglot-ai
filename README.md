@@ -9,13 +9,14 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 - **6 Languages**: German, English, Spanish, French, Swedish, Polish
 - **AI image generation**: Every vocabulary word (including verbs and adjectives) gets an automatically generated illustration via Mistral + LoremFlickr. Missing images are filled in the background on page load and after AI suggestions. A **↺ Regenerate** button on every flashcard and vocabulary card lets you request a fresh image when the current one is wrong.
 - **Semantic vocabulary folders**: Words are automatically classified into 20 categories (Animals, Food, Verbs, Clothing, …) and displayed in folder-style navigation on the vocabulary page
-- **AI vocabulary suggestions**: The AI suggests and auto-saves new vocabulary words based on your existing ones — one click on "AI Suggest" adds 8 contextual words
+- **AI vocabulary suggestions**: Proficiency-aware — the AI selects words appropriate for your CEFR level (A1–C2). Full deduplication: the AI receives the complete exclusion list of existing words, and the API enforces uniqueness at the database level (HTTP 409 on conflict).
 - **AI content**: Context-aware example sentences and full word info (translation, part of speech, example, synonym) via Mistral AI
 - **Favorites**: Star any word on the flashcard or vocabulary list; filter to show only favorites
 - **Vocabulary editing**: Edit translation, example sentence, notes and tags without resetting learning progress
-- **Dashboard**: XP, level, streak, learning progress (Mastered / In Progress / New), language statistics
+- **Dashboard**: XP, level, streak, learning progress (Mastered / In Progress / New), language statistics, and a contextual call-to-action for new users
 - **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
-- **Settings**: Native language, target languages with CEFR proficiency levels (A1–C2), daily word goal, and preferred exercise types
+- **Settings**: Native language, target languages with CEFR proficiency levels (A1–C2), daily word goal, preferred exercise types, and **Audit panel** (see below)
+- **Audit panel** *(Settings → Audit)*: Real-time scan of all installed Python dependency licences (approved / review / restricted) with search and filter; feature-originality checklist documenting how each feature is independently developed relative to commercial apps (Duolingo, Quizlet, Anki, Reverso)
 - **Demo data**: Automatic seeding on first launch
 
 ## Tech Stack
@@ -152,12 +153,14 @@ Every vocabulary word is illustrated with a contextual image sourced from [Lorem
 | `PATCH` | `/api/words/{id}/favorite` | Toggle favorite status |
 | `GET` | `/api/users/{id}/progress` | Full progress stats (mastered, learning, new, accuracy) |
 | `PUT` | `/api/users/{id}` | Update user settings (language, proficiency, goals) |
-| `POST` | `/api/ai/suggest` | AI suggests & auto-saves new words; also fills missing images for all words |
+| `POST` | `/api/ai/suggest` | AI suggests & auto-saves new words (proficiency-aware, full deduplication); also fills missing images for all words |
 | `POST` | `/api/ai/image` | Generate (or regenerate) an image URL for a single word |
 | `POST` | `/api/ai/fill-missing-images` | Queue background image generation for all words without an image |
 | `POST` | `/api/ai/sentence` | Generate example sentence for a word |
 | `GET` | `/api/ai/status` | Check which AI providers are configured |
 | `GET` | `/api/tts/speak` | Edge TTS audio stream |
+| `GET` | `/api/audit/licenses` | Scan all installed Python packages and classify their licences |
+| `GET` | `/api/audit/compliance` | Feature-originality checklist (independent development documentation) |
 
 Full interactive docs: http://localhost:8000/docs
 
@@ -176,7 +179,8 @@ free-polyglot-ai/
 │   │   ├── training.py      # Queue, review, sessions
 │   │   ├── progress.py      # Statistics, user management
 │   │   ├── ai.py            # AI endpoints (suggest, image, sentence, fill)
-│   │   └── tts.py           # Neural TTS endpoint (edge-tts)
+│   │   ├── tts.py           # Neural TTS endpoint (edge-tts)
+│   │   └── audit.py         # Licence compliance scan + feature-originality checklist
 │   └── services/
 │       ├── spaced_repetition.py  # SM-2 algorithm
 │       └── ai_service.py         # Mistral AI integration (small + large models)
@@ -187,7 +191,7 @@ free-polyglot-ai/
         │   ├── page.tsx         # Dashboard
         │   ├── training/        # Training page
         │   ├── vocabulary/      # Vocabulary management + category folders
-        │   └── settings/        # User language + proficiency settings
+        │   └── settings/        # User language + proficiency settings + Audit panel
         ├── components/
         │   ├── exercises/
         │   │   ├── Flashcard.tsx       # 3D flashcard with image + regenerate
@@ -207,6 +211,31 @@ free-polyglot-ai/
         └── types/
             └── index.ts     # TypeScript types
 ```
+
+## Third-Party Dependencies & License Compliance
+
+This project is released under the **MIT License**. The majority of dependencies also use permissive licences (MIT, Apache-2.0, BSD). One dependency carries a **weak copyleft** licence that requires attribution:
+
+### LGPL v3 Dependency: `edge-tts`
+
+| Field | Value |
+|-------|-------|
+| Package | `edge-tts` |
+| Version | ≥ 6.1.9 (see `requirements.txt`) |
+| Licence | GNU Lesser General Public License v3.0 (LGPLv3) |
+| Source | https://github.com/rany2/edge-tts |
+| Licence text | https://www.gnu.org/licenses/lgpl-3.0.html |
+
+#### How we comply with LGPLv3
+
+1. **Attribution** — `edge-tts` is listed here and in `requirements.txt`. Its LGPLv3 licence is acknowledged.
+2. **No modification** — `edge-tts` is used as-is via the public Python API. No source code of the library has been modified or embedded.
+3. **Replaceability** — Because `edge-tts` is an ordinary pip dependency, any user can upgrade, downgrade, or replace it by editing `requirements.txt` and reinstalling. No static linking or bundling is performed.
+4. **Our code stays MIT** — Only the library code is under LGPLv3. All source code in this repository remains under the MIT licence.
+
+The in-app **Audit → Dependency Licences** panel (`Settings → Audit`) lists every installed package and its detected licence at runtime.
+
+---
 
 ## License
 

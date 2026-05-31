@@ -34,6 +34,7 @@ class SuggestRequest(BaseModel):
     source_language: str
     target_language: str
     count: int = 5
+    proficiency_level: Optional[str] = None  # CEFR level, e.g. "A2", "B1"
 
 
 @router.post("/sentence")
@@ -140,26 +141,35 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     if not user:
         raise HTTPException(404, "User not found")
 
-    existing = (
-        db.query(VocabularyWord)
+    # Fetch ALL existing words for this user+source_language to build a complete
+    # deduplication set — not just the last 20, which would miss older words.
+    all_existing = (
+        db.query(VocabularyWord.word, VocabularyWord.translation, VocabularyWord.created_at)
         .filter(
             VocabularyWord.user_id == payload.user_id,
             VocabularyWord.source_language == payload.source_language,
-            VocabularyWord.target_language == payload.target_language,
         )
         .order_by(VocabularyWord.created_at.desc())
-        .limit(20)
         .all()
     )
 
-    existing_words = [{"word": w.word, "translation": w.translation} for w in existing]
-    existing_set = {w.word.lower() for w in existing}
+    existing_set = {w.word.lower() for w in all_existing}
+    # Pass the most recent words as context for the AI (sample, not all)
+    existing_words = [{"word": w.word, "translation": w.translation} for w in all_existing[:30]]
+
+    # Use explicitly provided level, else fall back to the user's stored proficiency
+    proficiency = (
+        payload.proficiency_level
+        or (user.language_proficiencies or {}).get(payload.target_language)
+        or "A2"
+    )
 
     suggestions = await ai_service.suggest_vocabulary(
         existing_words,
         payload.source_language,
         payload.target_language,
         payload.count,
+        proficiency_level=proficiency,
     )
 
     if suggestions is None:

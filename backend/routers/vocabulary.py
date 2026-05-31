@@ -58,6 +58,20 @@ def create_word(payload: WordCreate, background_tasks: BackgroundTasks, db: Sess
     user = db.get(User, payload.user_id)
     if not user:
         raise HTTPException(404, "User not found")
+
+    # Reject duplicates: same word (case-insensitive) for the same user and source language
+    duplicate = (
+        db.query(VocabularyWord)
+        .filter(
+            VocabularyWord.user_id == payload.user_id,
+            VocabularyWord.source_language == payload.source_language,
+            VocabularyWord.word.ilike(payload.word.strip()),
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(409, f"'{payload.word}' already exists in your {payload.source_language} vocabulary.")
+
     word = VocabularyWord(**payload.model_dump())
     db.add(word)
     db.commit()

@@ -162,6 +162,7 @@ export const aiApi = {
     source_language: string;
     target_language: string;
     count?: number;
+    proficiency_level?: string;
   }) =>
     api
       .post<{ added: number; words: VocabularyWord[] }>("/api/ai/suggest", payload)
@@ -178,6 +179,57 @@ export const aiApi = {
     api
       .post<{ url: string }>("/api/ai/image", null, { params: { word, language } })
       .then((r) => r.data),
+};
+
+// ─── Audit ────────────────────────────────────────────────────────────────────
+
+export interface AuditPackage {
+  name: string;
+  version: string;
+  license: string;
+  status: "approved" | "review" | "restricted";
+  home: string;
+}
+
+export interface AuditLicenseSummary {
+  total: number;
+  approved: number;
+  review: number;
+  restricted: number;
+  overall: "pass" | "warning" | "fail";
+}
+
+export interface AuditLicenseResult {
+  packages: AuditPackage[];
+  summary: AuditLicenseSummary;
+}
+
+export interface ComplianceItem {
+  id: string;
+  feature: string;
+  reference: string;
+  reference_license: string;
+  our_approach: string;
+  status: "pass" | "warning" | "fail";
+  risk: "low" | "medium" | "high";
+}
+
+export interface ComplianceResult {
+  items: ComplianceItem[];
+  summary: {
+    total: number;
+    pass: number;
+    warning: number;
+    fail: number;
+    overall: "pass" | "warning" | "fail";
+  };
+}
+
+export const auditApi = {
+  licenses: () =>
+    api.get<AuditLicenseResult>("/api/audit/licenses").then((r) => r.data),
+  compliance: () =>
+    api.get<ComplianceResult>("/api/audit/compliance").then((r) => r.data),
 };
 
 export default api;

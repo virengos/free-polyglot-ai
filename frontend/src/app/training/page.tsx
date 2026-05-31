@@ -36,25 +36,70 @@ export default function TrainingPage() {
   const [done, setDone] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestStatus, setSuggestStatus] = useState<string>("");
   const [hasAnyWords, setHasAnyWords] = useState(false);
+
+  /** Minimum vocabulary per language pair before we consider it "bootstrapped". */
+  const MIN_WORDS_PER_LANG = 8;
 
   // Load category definitions once
   useEffect(() => {
     vocabularyApi.categories().then(setCategories).catch(() => {});
   }, []);
 
+  /**
+   * Rank target languages by need:
+   *  1. Languages with fewer than MIN_WORDS_PER_LANG words (bootstrapping phase)
+   *  2. Languages with the lowest average memory strength (struggling phase)
+   * Returns sorted list of { targetLang, wordCount, avgStrength }.
+   */
+  function rankLanguages(
+    targetLangs: string[],
+    langStats: { target_language: string; total_words: number; avg_memory_strength: number }[]
+  ) {
+    return [...targetLangs]
+      .map((lang) => {
+        const stat = langStats.find((s) => s.target_language === lang);
+        return {
+          targetLang: lang,
+          wordCount: stat?.total_words ?? 0,
+          avgStrength: stat?.avg_memory_strength ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        // Phase 1: prioritise languages below minimum vocabulary threshold
+        const aNeeds = a.wordCount < MIN_WORDS_PER_LANG;
+        const bNeeds = b.wordCount < MIN_WORDS_PER_LANG;
+        if (aNeeds !== bNeeds) return aNeeds ? -1 : 1;
+        // Within the same phase: fewest words → weakest strength → alphabetical
+        if (a.wordCount !== b.wordCount) return a.wordCount - b.wordCount;
+        if (a.avgStrength !== b.avgStrength) return a.avgStrength - b.avgStrength;
+        return a.targetLang.localeCompare(b.targetLang);
+      });
+  }
+
   const loadQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const [words, userData] = await Promise.all([
+      const [words, userData, progressStats] = await Promise.all([
         trainingApi.queue({
           user_id: currentUserId,
           limit: 20,
           category: selectedCategory || undefined,
         }),
         usersApi.get(currentUserId),
+        usersApi.progress(currentUserId),
       ]);
       setUser(userData);
+
+      // Auto-bootstrap: silently generate words for languages that have too few.
+      // We set loading=false FIRST so the UI is immediately usable, then run
+      // the AI generation in the background.
+      const targetLangs = userData.target_languages ?? [];
+      const ranked = rankLanguages(targetLangs, progressStats.languages ?? []);
+      const missingLangs = ranked.filter((l) => l.wordCount < MIN_WORDS_PER_LANG);
+
+      // Show the queue immediately regardless of whether bootstrap is needed
       setQueue(words);
       setIndex(0);
       setCorrect(0);
@@ -67,13 +112,59 @@ export default function TrainingPage() {
         const all = await trainingApi.queue({ user_id: currentUserId, limit: 1, include_all: true });
         setHasAnyWords(all.length > 0);
       }
+      setLoading(false);
+
+      if (missingLangs.length > 0 && !suggesting) {
+        setSuggesting(true);
+        setSuggestStatus(
+          `Auto-generating vocabulary for ${missingLangs.map((l) => l.targetLang.toUpperCase()).join(", ")}…`
+        );
+        try {
+          let autoAdded = 0;
+          for (const { targetLang } of missingLangs) {
+            const proficiencyLevel =
+              (userData.language_proficiencies ?? {})[targetLang] ?? "A2";
+            try {
+              const res = await aiApi.suggestWords({
+                user_id: currentUserId,
+                source_language: userData.native_language ?? "de",
+                target_language: targetLang,
+                count: MIN_WORDS_PER_LANG,
+                proficiency_level: proficiencyLevel,
+              });
+              autoAdded += res.added;
+            } catch {
+              // non-fatal: skip this language
+            }
+          }
+          if (autoAdded > 0) {
+            toast.success(`Auto-generated ${autoAdded} starter word${autoAdded !== 1 ? "s" : ""}!`);
+            // Reload queue now that new words exist
+            const refreshedWords = await trainingApi.queue({
+              user_id: currentUserId,
+              limit: 20,
+              category: selectedCategory || undefined,
+            });
+            setQueue(refreshedWords);
+            setIndex(0);
+            setCorrect(0);
+            setWrong(0);
+            setDone(false);
+            if (refreshedWords.length > 0) setExerciseType(pickExerciseType(refreshedWords[0], allowed));
+          }
+        } finally {
+          setSuggesting(false);
+          setSuggestStatus("");
+        }
+        return; // already called setLoading(false) above
+      }
     } catch (err) {
       console.error("Failed to load training queue", err);
       toast.error("Could not load training queue");
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, selectedCategory]);
+  }, [currentUserId, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function practiceAll() {
     setLoading(true);
@@ -98,24 +189,81 @@ export default function TrainingPage() {
     }
   }
 
+  /**
+   * Smart vocabulary generation:
+   * – Covers ALL target languages, not just the first one.
+   * – Phase 1 (bootstrapping): generates words for any language with < MIN_WORDS_PER_LANG.
+   * – Phase 2 (normal): focuses on the language with the weakest average memory strength.
+   * – Uses the CEFR proficiency level stored in Settings for each language.
+   */
   async function suggestWords() {
-    const sourceLang = user?.native_language ?? "de";
-    const targetLang = user?.target_languages?.[0] ?? "en";
+    if (!user) return;
+    const sourceLang = user.native_language ?? "de";
+    const targetLangs = user.target_languages ?? [];
+    if (targetLangs.length === 0) {
+      toast.error("No target languages configured. Please visit Settings first.");
+      return;
+    }
+
     setSuggesting(true);
+    setSuggestStatus("Analysing your vocabulary…");
     try {
-      const result = await aiApi.suggestWords({
-        user_id: currentUserId,
-        source_language: sourceLang,
-        target_language: targetLang,
-        count: 8,
-      });
-      toast.success(`${result.added} new words added to your vocabulary!`);
+      // Fetch up-to-date progress to know word counts and strengths per language
+      const progressStats = await usersApi.progress(currentUserId);
+      const ranked = rankLanguages(targetLangs, progressStats.languages ?? []);
+
+      // Determine how many languages to address this session.
+      // Always do all languages that still need bootstrapping;
+      // if all are bootstrapped, focus on the single weakest language.
+      const needsBootstrap = ranked.filter((l) => l.wordCount < MIN_WORDS_PER_LANG);
+      const langsToProcess = needsBootstrap.length > 0 ? needsBootstrap : ranked.slice(0, 1);
+
+      const wordsPerLang = Math.max(6, Math.ceil(12 / langsToProcess.length));
+      let totalAdded = 0;
+
+      for (const { targetLang, wordCount, avgStrength } of langsToProcess) {
+        const proficiencyLevel =
+          (user.language_proficiencies ?? {})[targetLang] ?? "A2";
+
+        const phase =
+          wordCount < MIN_WORDS_PER_LANG
+            ? `bootstrapping (${wordCount} words so far)`
+            : `strengthening (avg. strength ${Math.round(avgStrength)}%)`;
+
+        setSuggestStatus(
+          `Generating ${wordsPerLang} words for ${targetLang.toUpperCase()} — ${phase}…`
+        );
+
+        try {
+          const result = await aiApi.suggestWords({
+            user_id: currentUserId,
+            source_language: sourceLang,
+            target_language: targetLang,
+            count: wordsPerLang,
+            proficiency_level: proficiencyLevel,
+          });
+          totalAdded += result.added;
+        } catch (langErr: any) {
+          const detail = langErr?.response?.data?.detail ?? "";
+          if (detail) throw langErr; // surface API/key errors immediately
+          console.warn(`Suggestion failed for ${targetLang}:`, langErr);
+        }
+      }
+
+      if (totalAdded > 0) {
+        toast.success(`${totalAdded} new word${totalAdded !== 1 ? "s" : ""} added!`);
+      } else {
+        toast.success("All common words already in your vocabulary – great job!");
+      }
       loadQueue();
     } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? "AI service unavailable. Check your MISTRAL_API_KEY.";
+      const msg =
+        err?.response?.data?.detail ??
+        "AI service unavailable. Check your MISTRAL_API_KEY.";
       toast.error(msg);
     } finally {
       setSuggesting(false);
+      setSuggestStatus("");
     }
   }
 
@@ -236,10 +384,15 @@ export default function TrainingPage() {
           <button
             onClick={suggestWords}
             disabled={suggesting}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="flex flex-col items-center gap-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
           >
-            <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
-            {suggesting ? "Generating…" : "AI: Suggest new words"}
+            <span className="flex items-center gap-2">
+              <Sparkles className={`h-4 w-4 ${suggesting ? "animate-spin" : ""}`} />
+              {suggesting ? "Generating…" : "AI: Suggest new words (all languages)"}
+            </span>
+            {suggesting && suggestStatus && (
+              <span className="text-xs text-indigo-200 font-normal">{suggestStatus}</span>
+            )}
           </button>
           <a
             href="/vocabulary"
