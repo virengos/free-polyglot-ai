@@ -69,6 +69,8 @@ export interface ProgressStats {
   streak_days: number;
   languages: LanguageStat[] | null;
   recent_sessions: TrainingSession[] | null;
+  daily_stats: DailyStat[] | null;
+  suggestions: string[] | null;
 }
 
 export interface LanguageStat {
@@ -77,6 +79,17 @@ export interface LanguageStat {
   total_words: number;
   mastered: number;
   avg_memory_strength: number;
+  language_score: number;
+}
+
+export interface DailyStat {
+  id: number;
+  user_id: number;
+  date: string;
+  target_language: string;
+  words_reviewed: number;
+  correct_count: number;
+  xp_earned: number;
 }
 
 // ─── Training / Review ────────────────────────────────────────────────────────

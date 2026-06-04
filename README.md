@@ -13,7 +13,7 @@ An adaptive, AI-powered vocabulary trainer for polyglots. Train multiple languag
 - **AI content**: Context-aware example sentences and full word info (translation, part of speech, example, synonym) via Mistral AI
 - **Favorites**: Star any word on the flashcard or vocabulary list; filter to show only favorites
 - **Vocabulary editing**: Edit translation, example sentence, notes and tags without resetting learning progress
-- **Dashboard**: XP, level, streak, learning progress (Mastered / In Progress / New), language statistics, and a contextual call-to-action for new users
+- **Dashboard**: XP, level, streak, and an **overall score per language (0–1000)** with colour-coded badges (Beginner → Excellent). A **Suggested Activity** panel recommends what to do next based on streak, due words, and your weakest language. A **7-day activity bar chart** shows daily words reviewed. All activity is persisted in a `DailyStats` table for long-term progress tracking.
 - **High-quality Text-to-Speech**: Neural female voices via Microsoft Edge TTS (Azure Neural, no API key required) — pronunciation on every word, translation, and example sentence
 - **One Language at a Time**: Each training session is locked to a single target language — a language picker appears at the start of every session. The session language resets on page refresh, preventing cross-language interference. AI vocabulary suggestions are also scoped to the active session language.
 - **Games – Memory**: A card-matching game that uses your vocabulary for the active session language. Every card (both the word and its translation) shows an AI-generated image. Live stats show correct pairs, wrong attempts, total attempts, and accuracy %. The win screen displays the full breakdown.

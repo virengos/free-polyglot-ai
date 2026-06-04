@@ -23,6 +23,7 @@ class User(Base):
 
     words = relationship("VocabularyWord", back_populates="owner", cascade="all, delete")
     sessions = relationship("TrainingSession", back_populates="user", cascade="all, delete")
+    daily_stats = relationship("DailyStats", back_populates="user", cascade="all, delete")
 
 
 class VocabularyWord(Base):
@@ -74,3 +75,17 @@ class TrainingSession(Base):
     language_pairs = Column(JSON, default=[])  # [{"source": "de", "target": "en"}, ...]
 
     user = relationship("User", back_populates="sessions")
+
+
+class DailyStats(Base):
+    __tablename__ = "daily_stats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    date = Column(String, nullable=False, index=True)       # ISO date "2026-06-04"
+    target_language = Column(String, nullable=False)
+    words_reviewed = Column(Integer, default=0)
+    correct_count = Column(Integer, default=0)
+    xp_earned = Column(Integer, default=0)
+
+    user = relationship("User", back_populates="daily_stats")

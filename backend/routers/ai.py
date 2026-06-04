@@ -37,6 +37,14 @@ class SuggestRequest(BaseModel):
     proficiency_level: Optional[str] = None  # CEFR level, e.g. "A2", "B1"
 
 
+class SuggestPhrasesRequest(BaseModel):
+    user_id: int
+    source_language: str
+    target_language: str
+    count: int = 6
+    proficiency_level: Optional[str] = None
+
+
 @router.post("/sentence")
 async def generate_sentence(payload: SentenceRequest):
     result = await ai_service.generate_example_sentence(
@@ -178,13 +186,15 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     if not user:
         raise HTTPException(404, "User not found")
 
-    # Fetch ALL existing words for this user+source_language to build a complete
-    # deduplication set — not just the last 20, which would miss older words.
+    # Fetch ALL existing words for this user+language pair to build a complete
+    # deduplication set — scoped to both source and target language so the same
+    # German word can exist for different target languages without false conflicts.
     all_existing = (
         db.query(VocabularyWord.word, VocabularyWord.translation, VocabularyWord.created_at)
         .filter(
             VocabularyWord.user_id == payload.user_id,
             VocabularyWord.source_language == payload.source_language,
+            VocabularyWord.target_language == payload.target_language,
         )
         .order_by(VocabularyWord.created_at.desc())
         .all()
@@ -295,3 +305,123 @@ async def suggest_vocabulary_words(payload: SuggestRequest, db: Session = Depend
     asyncio.create_task(_generate_images())
 
     return {"added": len(added), "words": [WordOut.model_validate(w) for w in added]}
+
+
+@router.post("/suggest-phrases")
+async def suggest_phrases(payload: SuggestPhrasesRequest, db: Session = Depends(get_db)):
+    """Ask the AI to suggest and auto-save new phrases/idioms (Redewendungen)."""
+    user = db.get(User, payload.user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # Fetch all existing phrases for deduplication
+    existing = (
+        db.query(VocabularyWord.word, VocabularyWord.translation)
+        .filter(
+            VocabularyWord.user_id == payload.user_id,
+            VocabularyWord.source_language == payload.source_language,
+            VocabularyWord.category == "phrases",
+        )
+        .all()
+    )
+    existing_set = {w.word.lower() for w in existing}
+    existing_phrases = [{"word": w.word, "translation": w.translation} for w in existing]
+
+    proficiency = (
+        payload.proficiency_level
+        or (user.language_proficiencies or {}).get(payload.target_language)
+        or "A2"
+    )
+
+    suggestions = await ai_service.suggest_phrases(
+        existing_phrases,
+        payload.source_language,
+        payload.target_language,
+        payload.count,
+        proficiency_level=proficiency,
+    )
+
+    if suggestions is None:
+        raise HTTPException(
+            503,
+            "AI service temporarily unavailable (rate limit or API error). Please try again in a few seconds.",
+        )
+
+    added = []
+    for s in suggestions:
+        if not isinstance(s, dict):
+            continue
+        phrase_text = s.get("word", "").strip()
+        if not phrase_text or phrase_text.lower() in existing_set:
+            continue
+        phrase = VocabularyWord(
+            user_id=payload.user_id,
+            source_language=payload.source_language,
+            target_language=payload.target_language,
+            word=phrase_text,
+            translation=s.get("translation", "").strip(),
+            part_of_speech="phrase",
+            category="phrases",
+            example_sentence=s.get("example_sentence") or None,
+            example_translation=s.get("example_translation") or None,
+        )
+        db.add(phrase)
+        existing_set.add(phrase_text.lower())
+        added.append(phrase)
+
+    db.commit()
+    for p in added:
+        db.refresh(p)
+
+    return {"added": len(added), "words": [WordOut.model_validate(p) for p in added]}
+
+
+@router.post("/deduplicate")
+def deduplicate_vocabulary(user_id: int = Query(...), db: Session = Depends(get_db)):
+    """Remove exact duplicate vocabulary words (same user + source_lang + target_lang + word).
+    Keeps the copy with the most learning progress (has image, most correct reviews, newest)."""
+    from sqlalchemy import func
+
+    # Find all (user, src, tgt, lower_word) groups with more than one entry
+    dup_groups = (
+        db.query(
+            VocabularyWord.user_id,
+            VocabularyWord.source_language,
+            VocabularyWord.target_language,
+            func.lower(VocabularyWord.word).label("lw"),
+        )
+        .filter(VocabularyWord.user_id == user_id)
+        .group_by(
+            VocabularyWord.user_id,
+            VocabularyWord.source_language,
+            VocabularyWord.target_language,
+            func.lower(VocabularyWord.word),
+        )
+        .having(func.count(VocabularyWord.id) > 1)
+        .all()
+    )
+
+    deleted = 0
+    for grp in dup_groups:
+        dupes = (
+            db.query(VocabularyWord)
+            .filter(
+                VocabularyWord.user_id == grp.user_id,
+                VocabularyWord.source_language == grp.source_language,
+                VocabularyWord.target_language == grp.target_language,
+                func.lower(VocabularyWord.word) == grp.lw,
+            )
+            # Keep: has image first, then most correct reviews, then newest id
+            .order_by(
+                (VocabularyWord.image_url != None).desc(),  # noqa: E711
+                VocabularyWord.times_correct.desc(),
+                VocabularyWord.id.desc(),
+            )
+            .all()
+        )
+        for w in dupes[1:]:
+            db.delete(w)
+            deleted += 1
+
+    db.commit()
+    return {"deleted": deleted, "message": f"{deleted} duplicate word(s) removed."}

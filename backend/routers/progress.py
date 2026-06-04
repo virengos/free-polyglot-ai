@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 import datetime
 
 from database import get_db
-from models import VocabularyWord, User, TrainingSession
-from schemas import ProgressOut, UserOut, LanguageStat, UserCreate, UserUpdate
+from models import VocabularyWord, User, TrainingSession, DailyStats
+from schemas import ProgressOut, UserOut, LanguageStat, DailyStatOut, UserCreate, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -88,9 +88,54 @@ def get_progress(user_id: int, db: Session = Depends(get_db)):
             total_words=v["total"],
             mastered=v["mastered"],
             avg_memory_strength=round(v["strength_sum"] / v["total"], 1) if v["total"] > 0 else 0.0,
+            language_score=round(v["strength_sum"] / v["total"] * 10) if v["total"] > 0 else 0,
         )
         for (src, tgt), v in lang_map.items()
     ]
+
+    # Daily stats – last 30 days
+    thirty_days_ago = (datetime.date.today() - datetime.timedelta(days=29)).isoformat()
+    daily_stats = db.query(DailyStats).filter(
+        DailyStats.user_id == user_id,
+        DailyStats.date >= thirty_days_ago,
+    ).order_by(DailyStats.date.asc()).all()
+
+    # Activity suggestions
+    suggestions: list[str] = []
+    today_str = datetime.date.today().isoformat()
+    trained_today = any(ds.date == today_str for ds in daily_stats)
+
+    if not trained_today:
+        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        if user.streak_last_date == yesterday and user.streak_days > 0:
+            suggestions.append(
+                f"Your {user.streak_days}-day streak is at risk! Train today to keep it alive."
+            )
+        elif words_due > 0:
+            suggestions.append(
+                f"You have {words_due} word{'s' if words_due != 1 else ''} due for review. Start a training session!"
+            )
+        else:
+            suggestions.append("Keep learning! Add new vocabulary or review what you know.")
+    else:
+        if user.streak_days >= 7:
+            suggestions.append(f"Incredible! {user.streak_days}-day streak – you're on fire!")
+        elif user.streak_days >= 3:
+            suggestions.append(f"Great work! {user.streak_days}-day streak – keep going!")
+
+    for lang in sorted(languages, key=lambda l: l.language_score):
+        if lang.language_score < 300 and lang.total_words >= 5:
+            lang_name = lang.target_language.upper()
+            suggestions.append(
+                f"Your {lang_name} score is {lang.language_score}/1000 – focus on this language to level up!"
+            )
+            break  # only one low-score nudge
+
+    if words_due > 0 and trained_today:
+        suggestions.append(f"You still have {words_due} word{'s' if words_due != 1 else ''} due – finish your reviews!")
+
+    if not suggestions:
+        suggestions.append("You're doing great! All words reviewed and streak intact.")
 
     return ProgressOut(
         user_id=user_id,
@@ -107,4 +152,6 @@ def get_progress(user_id: int, db: Session = Depends(get_db)):
         streak_days=user.streak_days,
         languages=languages,
         recent_sessions=sessions,
+        daily_stats=daily_stats,
+        suggestions=suggestions,
     )

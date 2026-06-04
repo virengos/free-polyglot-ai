@@ -168,6 +168,17 @@ export const aiApi = {
       .post<{ added: number; words: VocabularyWord[] }>("/api/ai/suggest", payload)
       .then((r) => r.data),
 
+  suggestPhrases: (payload: {
+    user_id: number;
+    source_language: string;
+    target_language: string;
+    count?: number;
+    proficiency_level?: string;
+  }) =>
+    api
+      .post<{ added: number; words: VocabularyWord[] }>("/api/ai/suggest-phrases", payload)
+      .then((r) => r.data),
+
   fillMissingImages: (user_id: number) =>
     api
       .post<{ queued: number; message: string }>("/api/ai/fill-missing-images", null, {
@@ -178,6 +189,13 @@ export const aiApi = {
   reclassifyOthers: (user_id: number) =>
     api
       .post<{ queued: number; message: string }>("/api/ai/reclassify-others", null, {
+        params: { user_id },
+      })
+      .then((r) => r.data),
+
+  deduplicate: (user_id: number) =>
+    api
+      .post<{ deleted: number; message: string }>("/api/ai/deduplicate", null, {
         params: { user_id },
       })
       .then((r) => r.data),

@@ -4,7 +4,7 @@ from typing import List, Optional
 import datetime
 
 from database import get_db
-from models import VocabularyWord, User, TrainingSession
+from models import VocabularyWord, User, TrainingSession, DailyStats
 from schemas import ReviewSubmit, ReviewResult, SessionCreate, SessionOut, SessionEnd, WordOut
 from services.spaced_repetition import sm2_review, xp_for_review, compute_level
 
@@ -112,6 +112,28 @@ def submit_review(payload: ReviewSubmit, db: Session = Depends(get_db)):
         else:
             user.streak_days = 1  # reset streak
         user.streak_last_date = today
+
+    # Upsert daily stats for this language
+    daily = db.query(DailyStats).filter(
+        DailyStats.user_id == payload.user_id,
+        DailyStats.date == today,
+        DailyStats.target_language == word.target_language,
+    ).first()
+    if daily is None:
+        daily = DailyStats(
+            user_id=payload.user_id,
+            date=today,
+            target_language=word.target_language,
+            words_reviewed=1,
+            correct_count=1 if quality >= 3 else 0,
+            xp_earned=earned_xp,
+        )
+        db.add(daily)
+    else:
+        daily.words_reviewed += 1
+        if quality >= 3:
+            daily.correct_count += 1
+        daily.xp_earned += earned_xp
 
     db.commit()
     db.refresh(word)

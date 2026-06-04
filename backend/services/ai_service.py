@@ -315,6 +315,8 @@ async def suggest_vocabulary(
         f"{sparse_hint}"
         f"Suggest {count} useful new {src}\u2192{tgt} vocabulary words appropriate for {cefr_description} level "
         "that are not already in the exclusion list. "
+        "IMPORTANT: Never use a backslash (\\) or forward slash (/) to separate word variants or personal pronouns. "
+        "Use a comma and space (, ) instead. Example: write 'ich, wir' not 'ich/wir'. "
         "Return ONLY a JSON array with no extra text:\n"
         '[{"word":"...","translation":"...","part_of_speech":"...","category":"...","example_sentence":"...","example_translation":"..."}]\n'
         f'Valid categories: {", ".join(WORD_CATEGORIES.keys())}'
@@ -332,7 +334,99 @@ async def suggest_vocabulary(
         end = raw.rfind("]") + 1
         if start >= 0 and end > start:
             raw = raw[start:end]
-        return json.loads(raw.strip())
+        parsed = json.loads(raw.strip())
+        # Sanitize: replace any remaining slashes used as separators in word/translation fields
+        for item in parsed:
+            for field in ("word", "translation"):
+                if field in item and isinstance(item[field], str):
+                    item[field] = _fix_slash_separators(item[field])
+        return parsed
     except Exception:
+        return None
+
+
+def _fix_slash_separators(text: str) -> str:
+    """Replace slash-separated pronoun/variant lists with comma-separated ones.
+
+    The AI occasionally produces forms like 'ich/wir/er' which TTS reads as
+    'ich backslash wir backslash er'. This normalises them to 'ich, wir, er'.
+    Only replaces slashes that separate words (not slashes inside URLs or
+    abbreviations like km/h).
+    """
+    import re
+    # Match slashes that are surrounded by word characters on both sides
+    # (i.e. not path separators or unit fractions like km/h with digits)
+    return re.sub(r'(?<=\w)/(?=\w)', ', ', text)
+
+
+async def suggest_phrases(
+    existing_phrases: list[dict],
+    source_lang: str,
+    target_lang: str,
+    count: int = 6,
+    proficiency_level: str = "A2",
+) -> Optional[list[dict]]:
+    """Ask the AI to suggest useful phrases and idioms (Redewendungen)."""
+    src = LANGUAGE_NAMES.get(source_lang, source_lang)
+    tgt = LANGUAGE_NAMES.get(target_lang, target_lang)
+
+    cefr_description = {
+        "A1": "absolute beginner (A1)",
+        "A2": "elementary (A2)",
+        "B1": "intermediate (B1)",
+        "B2": "upper-intermediate (B2)",
+        "C1": "advanced (C1)",
+        "C2": "proficient/native-level (C2)",
+    }.get(proficiency_level.upper(), f"level {proficiency_level}")
+
+    exclusion = ""
+    if existing_phrases:
+        existing_list = ", ".join(f'"{p["word"]}"' for p in existing_phrases[:40])
+        exclusion = (
+            f"Do NOT suggest any of the following phrases already in the learner's collection: "
+            f"{existing_list}. "
+        )
+
+    prompt = (
+        f"A language learner is studying {tgt} from {src} at {cefr_description} level. "
+        f"Suggest {count} useful, natural everyday phrases or idioms (Redewendungen) in {tgt} "
+        f"that a real speaker would use in conversation. "
+        "Include a variety: greetings, polite requests, common expressions, and fixed idioms. "
+        f"{exclusion}"
+        "RULES:\n"
+        "- Each phrase must be a complete expression, not just a single word.\n"
+        "- Never use a backslash (\\) or forward slash (/) to separate word variants or personal pronouns. "
+        "Use a comma and space (, ) instead. Example: write 'je, tu, il' not 'je/tu/il'.\n"
+        f"- 'word': the {src} equivalent or literal meaning of the phrase (the learner's native language).\n"
+        f"- 'translation': the full phrase in {tgt} (the language being learned).\n"
+        f"- 'example_sentence': a short example sentence in {tgt} using the phrase.\n"
+        f"- 'example_translation': translation of the example sentence into {src}.\n"
+        "Return ONLY a JSON array, no extra text:\n"
+        '[{"word":"...","translation":"...","part_of_speech":"phrase","category":"phrases",'
+        '"example_sentence":"...","example_translation":"..."}]'
+    )
+
+    raw = _chat(prompt, max_tokens=1500)
+    if raw is None:
+        return None
+    try:
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start >= 0 and end > start:
+            raw = raw[start:end]
+        parsed = json.loads(raw.strip())
+        for item in parsed:
+            item["part_of_speech"] = "phrase"
+            item["category"] = "phrases"
+            for field in ("word", "translation"):
+                if field in item and isinstance(item[field], str):
+                    item[field] = _fix_slash_separators(item[field])
+        return parsed
+    except Exception:
+        logger.error("Failed to parse suggest_phrases JSON for lang=%s", target_lang)
         return None
 

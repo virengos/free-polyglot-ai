@@ -7,7 +7,7 @@ import { WORD_CATEGORY_ICONS, LANGUAGE_FLAGS, LANGUAGES } from "@/types";
 import { useAppStore } from "@/store/appStore";
 import VocabCard from "@/components/VocabCard";
 import AddWordModal from "@/components/AddWordModal";
-import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder, Lock, RefreshCw } from "lucide-react";
+import { Plus, Search, Filter, Star, Sparkles, FolderOpen, Folder, Lock, RefreshCw, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 export default function VocabularyPage() {
@@ -22,7 +22,9 @@ export default function VocabularyPage() {
   const [showModal, setShowModal] = useState(false);
   const [editWord, setEditWord] = useState<VocabularyWord | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestingPhrases, setSuggestingPhrases] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
+  const [deduplicating, setDeduplicating] = useState(false);
   // Track whether we already kicked off a fill for this user in this session
   const imageFillTriggered = useRef(false);
 
@@ -148,6 +150,49 @@ export default function VocabularyPage() {
     }
   }
 
+  async function handleDeduplicate() {
+    setDeduplicating(true);
+    try {
+      const res = await aiApi.deduplicate(currentUserId);
+      if (res.deleted === 0) {
+        toast("No duplicates found.");
+      } else {
+        toast.success(res.message);
+        vocabularyApi.list({ user_id: currentUserId }).then(setAllWords).catch(() => {});
+        loadWords();
+      }
+    } catch {
+      toast.error("Deduplication failed. Please try again.");
+    } finally {
+      setDeduplicating(false);
+    }
+  }
+
+  async function handleSuggestPhrases() {
+    setSuggestingPhrases(true);
+    try {
+      const user = await usersApi.get(currentUserId);
+      const sourceLang = user.native_language;
+      const targetLang = sessionLanguage || filterLang || user.target_languages[0] || "en";
+      const proficiencyLevel = (user.language_proficiencies ?? {})[targetLang] ?? "A2";
+      const result = await aiApi.suggestPhrases({
+        user_id: currentUserId,
+        source_language: sourceLang,
+        target_language: targetLang,
+        count: 6,
+        proficiency_level: proficiencyLevel,
+      });
+      toast.success(`${result.added} new phrase(s) added!`);
+      loadWords();
+      vocabularyApi.list({ user_id: currentUserId }).then(setAllWords).catch(() => {});
+    } catch (err: any) {
+      const detail: string = err?.response?.data?.detail ?? "";
+      toast.error(detail || "AI service unavailable. Please try again in a moment.");
+    } finally {
+      setSuggestingPhrases(false);
+    }
+  }
+
   async function handleSuggestWords() {
     setSuggesting(true);
     try {
@@ -204,6 +249,28 @@ export default function VocabularyPage() {
               {reclassifying ? "Reclassifying…" : `Sort Others (${categoryCounts["other"]})`}
             </button>
           )}
+          <button
+            onClick={handleDeduplicate}
+            disabled={deduplicating}
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors border border-slate-600"
+            title="Find and remove duplicate vocabulary entries"
+          >
+            <Trash2 className={`h-4 w-4 text-rose-400 ${deduplicating ? "animate-pulse" : ""}`} />
+            {deduplicating ? "Checking…" : "Remove Dupes"}
+          </button>
+          <button
+            onClick={handleSuggestPhrases}
+            disabled={suggestingPhrases}
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold px-4 py-2 rounded-xl flex items-center gap-2 transition-colors border border-slate-600"
+            title={sessionLanguage ? `Generate ${LANGUAGES[sessionLanguage] ?? sessionLanguage} phrases (session locked)` : "Let AI suggest useful phrases & idioms"}
+          >
+            {sessionLanguage ? (
+              <Lock className="h-4 w-4 text-purple-400" />
+            ) : (
+              <Sparkles className={`h-4 w-4 text-purple-400 ${suggestingPhrases ? "animate-spin" : ""}`} />
+            )}
+            {suggestingPhrases ? "Generating…" : "AI Phrases"}
+          </button>
           <button
             onClick={handleSuggestWords}
             disabled={suggesting}

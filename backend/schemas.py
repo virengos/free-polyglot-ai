@@ -146,6 +146,19 @@ class LanguageStat(BaseModel):
     total_words: int
     mastered: int           # memory_strength >= 80
     avg_memory_strength: float
+    language_score: int     # 0–1000 based on avg_memory_strength
+
+
+class DailyStatOut(BaseModel):
+    id: int
+    user_id: int
+    date: str
+    target_language: str
+    words_reviewed: int
+    correct_count: int
+    xp_earned: int
+
+    model_config = {"from_attributes": True}
 
 
 class ProgressOut(BaseModel):
@@ -163,3 +176,5 @@ class ProgressOut(BaseModel):
     streak_days: int
     languages: List[LanguageStat]
     recent_sessions: Optional[List[SessionOut]] = None
+    daily_stats: Optional[List[DailyStatOut]] = None
+    suggestions: Optional[List[str]] = None

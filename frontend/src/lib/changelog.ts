@@ -7,6 +7,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "2026-06-04",
+    features: [
+      "Dashboard: per-language score (0–1000) based on average memory strength, with colour-coded badges (Beginner / Developing / Good / Excellent)",
+      "Dashboard: Suggested Activity panel — context-sensitive tips based on streak status, words due, and weakest language",
+      "Dashboard: 7-day activity bar chart showing words reviewed per day",
+      "DailyStats table: training activity (words reviewed, correct count, XP earned) is now persisted per user, language, and day — forms the basis for long-term progress tracking",
+      "AI suggest-phrases endpoint: AI generates idiomatic phrases (Redewendungen) scoped to target language and CEFR level, auto-saved to the phrases category",
+      "Vocabulary page: 'Suggest Phrases' button to generate new idiomatic expressions",
+      "Vocabulary page: 'Deduplicate' button removes exact duplicate entries (keeping the copy with the most learning progress)",
+      "Deduplication endpoint: /api/ai/deduplicate removes exact duplicate vocabulary per user+language pair",
+      "AI vocabulary suggest: deduplication scope tightened to source+target language pair (avoids false conflicts across different target languages)",
+    ],
+    bugfixes: [
+      "AI output: slashes used as pronoun separators (ich/wir) are now automatically replaced with commas (ich, wir) so TTS reads them correctly",
+      "AI prompt: explicit instruction added to never use backslash or forward slash to separate word variants or personal pronouns",
+    ],
+  },
+  {
     version: "1.9.0",
     date: "2026-05-31",
     features: [
