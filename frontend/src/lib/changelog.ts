@@ -7,6 +7,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "2026-06-05",
+    features: [
+      "Vocabulary page: pagination — view 25, 50, or 100 words per page with prev/next navigation and ellipsis for large lists",
+      "Vocabulary page: header now shows 'X–Y of Z entries' so you always know your position in the list",
+      "Auto-classify: words without a category are automatically sent to AI for classification when the vocabulary page opens (once per session)",
+      "Bulk Import: new 'Import' button opens a modal where you can paste many vocabulary pairs at once (comma- or tab-separated, one pair per line)",
+      "Bulk Import: live preview table shows the first 10 parsed pairs and counts valid rows vs. lines missing a translation",
+      "Bulk Import: duplicate entries (same word + source language) are silently skipped; the result shows how many were added vs. skipped",
+      "Bulk Import: all imported words are enriched with AI category and image in the background",
+      "Backend: new GET /api/words/count endpoint returns the total matching a filter set (used for pagination)",
+      "Backend: GET /api/words/ now accepts skip and limit parameters (max 5000) for server-side pagination",
+    ],
+    bugfixes: [
+      "Category sidebar counts are now loaded with limit:5000 so they reflect all words, not just the current page",
+      "loadWords closure inside setTimeout callbacks replaced with a stable ref to avoid stale-closure bugs after filter changes",
+    ],
+  },
+  {
     version: "2.0.0",
     date: "2026-06-04",
     features: [

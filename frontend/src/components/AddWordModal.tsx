@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Loader2, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { vocabularyApi } from "@/lib/api";
 import { LANGUAGES, WORD_CATEGORY_ICONS } from "@/types";
@@ -16,9 +16,7 @@ interface AddWordModalProps {
   editWord?: VocabularyWord | null;
 }
 
-const EMPTY_FORM = {
-  source_language: "de",
-  target_language: "en",
+const BLANK_WORD_FIELDS = {
   word: "",
   translation: "",
   part_of_speech: "",
@@ -29,17 +27,25 @@ const EMPTY_FORM = {
   notes: "",
 };
 
+const DEFAULT_LANGUAGES = { source_language: "de", target_language: "en" };
+
 export default function AddWordModal({ userId, open, onClose, onAdded, editWord }: AddWordModalProps) {
   const isEdit = !!editWord;
-  const [form, setForm] = useState(EMPTY_FORM);
+  // Persist last-used language pair across opens (survives modal close/reopen)
+  const lastLanguages = useRef(DEFAULT_LANGUAGES);
+  const [form, setForm] = useState({ ...lastLanguages.current, ...BLANK_WORD_FIELDS });
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<WordCategory[]>([]);
+  // Lock the language pair so it can't be changed accidentally
+  const [lockLanguages, setLockLanguages] = useState(false);
+  // Stay-open (batch) mode: modal remains open after each add, only word fields are cleared
+  const [batchMode, setBatchMode] = useState(false);
 
   useEffect(() => {
     vocabularyApi.categories().then(setCategories).catch(() => {});
   }, []);
 
-  // Pre-fill form when editing
+  // Pre-fill form when editing; on new-add, restore last-used language pair
   useEffect(() => {
     if (editWord) {
       setForm({
@@ -54,13 +60,23 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
         tags: editWord.tags.join(", "),
         notes: editWord.notes ?? "",
       });
-    } else {
-      setForm(EMPTY_FORM);
+    } else if (open) {
+      setForm({ ...lastLanguages.current, ...BLANK_WORD_FIELDS });
     }
   }, [editWord, open]);
 
   function update(key: keyof typeof form, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      // Keep the ref in sync so the next open restores the current pair
+      if (key === "source_language" || key === "target_language") {
+        lastLanguages.current = {
+          source_language: next.source_language,
+          target_language: next.target_language,
+        };
+      }
+      return next;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -79,6 +95,8 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
           notes: form.notes.trim() || undefined,
         });
         toast.success("Word updated!");
+        onAdded();
+        onClose();
       } else {
         await vocabularyApi.create({
           user_id: userId,
@@ -93,10 +111,15 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
           tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
           notes: form.notes.trim() || undefined,
         });
-        toast.success("Word added! AI is generating image & category…");
+        toast.success(batchMode ? "Word added! Ready for next entry." : "Word added! AI is generating image & category…");
+        onAdded();
+        if (batchMode) {
+          // Stay open — clear only the word-specific fields, keep language pair
+          setForm((f) => ({ ...f, ...BLANK_WORD_FIELDS }));
+        } else {
+          onClose();
+        }
       }
-      onAdded();
-      onClose();
     } catch {
       toast.error("Error saving");
     } finally {
@@ -133,37 +156,62 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               {/* Language pair — read-only when editing */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Source language</label>
-                  <select
-                    value={form.source_language}
-                    onChange={(e) => update("source_language", e.target.value)}
-                    disabled={isEdit}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
-                  >
-                    {Object.entries(LANGUAGES).map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+              <div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Source language</label>
+                    <select
+                      value={form.source_language}
+                      onChange={(e) => update("source_language", e.target.value)}
+                      disabled={isEdit || lockLanguages}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
+                    >
+                      {Object.entries(LANGUAGES).map(([code, name]) => (
+                        <option key={code} value={code}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Target language</label>
+                    <select
+                      value={form.target_language}
+                      onChange={(e) => update("target_language", e.target.value)}
+                      disabled={isEdit || lockLanguages}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
+                    >
+                      {Object.entries(LANGUAGES).map(([code, name]) => (
+                        <option key={code} value={code}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Target language</label>
-                  <select
-                    value={form.target_language}
-                    onChange={(e) => update("target_language", e.target.value)}
-                    disabled={isEdit}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm disabled:opacity-50"
-                  >
-                    {Object.entries(LANGUAGES).map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!isEdit && (
+                  <div className="flex items-center gap-4 mt-2">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs text-slate-400 hover:text-slate-200 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={lockLanguages}
+                        onChange={(e) => setLockLanguages(e.target.checked)}
+                        className="accent-indigo-500 w-3.5 h-3.5"
+                      />
+                      <Lock className="h-3 w-3" />
+                      Lock language pair
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs text-slate-400 hover:text-slate-200 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={batchMode}
+                        onChange={(e) => setBatchMode(e.target.checked)}
+                        className="accent-indigo-500 w-3.5 h-3.5"
+                      />
+                      Add multiple in a row
+                    </label>
+                  </div>
+                )}
               </div>
 
               {/* Word — read-only when editing */}
@@ -237,7 +285,7 @@ export default function AddWordModal({ userId, open, onClose, onAdded, editWord 
                 className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isEdit ? "Save changes" : "Add word"}
+                {isEdit ? "Save changes" : batchMode ? "Add & continue" : "Add word"}
               </button>
             </form>
           </motion.div>

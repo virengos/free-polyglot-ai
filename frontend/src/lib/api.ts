@@ -53,8 +53,20 @@ export const vocabularyApi = {
     search?: string;
     favorites_only?: boolean;
     category?: string;
+    skip?: number;
+    limit?: number;
   }) =>
     api.get<VocabularyWord[]>("/api/words/", { params }).then((r) => r.data),
+
+  count: (params: {
+    user_id: number;
+    source_language?: string;
+    target_language?: string;
+    search?: string;
+    favorites_only?: boolean;
+    category?: string;
+  }) =>
+    api.get<{ total: number }>("/api/words/count", { params }).then((r) => r.data),
 
   get: (id: number) =>
     api.get<VocabularyWord>(`/api/words/${id}`).then((r) => r.data),
@@ -98,6 +110,16 @@ export const vocabularyApi = {
   distractors: (id: number, count = 3) =>
     api
       .get<string[]>(`/api/words/${id}/distractors`, { params: { count } })
+      .then((r) => r.data),
+
+  bulkImport: (payload: {
+    user_id: number;
+    source_language: string;
+    target_language: string;
+    items: { word: string; translation: string }[];
+  }) =>
+    api
+      .post<{ added: number; skipped: number; skipped_words: string[] }>("/api/words/bulk-import", payload)
       .then((r) => r.data),
 };
 
