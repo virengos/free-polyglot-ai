@@ -312,4 +312,47 @@ export const conversationsApi = {
       .then((r) => r.data),
 };
 
+// ─── Basics ───────────────────────────────────────────────────────────────────
+
+export interface BasicsTopic {
+  id: string;
+  label: string;
+  emoji: string;
+  title_en: string;
+}
+
+export interface BasicsItem {
+  word: string;
+  translation: string;
+  example: string;
+  example_translation: string;
+}
+
+export interface BasicsSet {
+  items: BasicsItem[];
+}
+
+export const basicsApi = {
+  topics: () =>
+    api.get<BasicsTopic[]>("/api/basics/topics").then((r) => r.data),
+
+  set: (payload: {
+    user_id: number;
+    topic: string;
+    target_language: string;
+    source_language?: string;
+    level?: string;
+  }) =>
+    api.post<BasicsSet>("/api/basics/set", payload).then((r) => r.data),
+
+  exercise: (payload: {
+    user_id: number;
+    topic: string;
+    target_language: string;
+    source_language?: string;
+    level?: string;
+  }) =>
+    api.post<FillInBlankExercise>("/api/basics/exercise", payload).then((r) => r.data),
+};
+
 export default api;

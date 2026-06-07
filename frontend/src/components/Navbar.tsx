@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, LayoutDashboard, Dumbbell, Settings, History, Gamepad2, Lightbulb, MessageSquare } from "lucide-react";
+import { BookOpen, LayoutDashboard, Dumbbell, Settings, History, Gamepad2, Lightbulb, MessageSquare, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/training", icon: Dumbbell, label: "Training" },
   { href: "/vocabulary", icon: BookOpen, label: "Vocabulary" },
   { href: "/conversations", icon: MessageSquare, label: "Conversations" },
+  { href: "/basics", icon: GraduationCap, label: "Basics" },
   { href: "/games", icon: Gamepad2, label: "Games" },
   { href: "/tips", icon: Lightbulb, label: "Tips" },
   { href: "/settings", icon: Settings, label: "Settings" },

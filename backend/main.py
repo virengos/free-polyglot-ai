@@ -8,7 +8,7 @@ load_dotenv()
 
 from database import engine
 from models import Base
-from routers import vocabulary, training, progress, ai, tts, audit, conversations
+from routers import vocabulary, training, progress, ai, tts, audit, conversations, basics
 
 
 def _run_migrations():
@@ -78,6 +78,7 @@ app.add_middleware(
 app.include_router(vocabulary.router)
 app.include_router(training.router)
 app.include_router(progress.router)
+app.include_router(basics.router)
 app.include_router(ai.router)
 app.include_router(tts.router)
 app.include_router(audit.router)

@@ -7,6 +7,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.2.0",
+    date: "2026-06-07",
+    features: [
+      "Language Basics page: new sidebar entry (GraduationCap icon) for learning fundamental vocabulary — weekdays, months, telling time, numbers 1–20, colors, seasons, greetings, directions, weather, family members, body parts, and basic foods",
+      "Learn mode: interactive flashcard grid — click any card to reveal the translation; 'Show all' toggle flips all cards at once; optional example sentence overlay per card",
+      "Practice mode: AI-generated fill-in-the-blank exercises focused on the selected basics topic, with word bank, special character bar, per-blank hints, answer reveal, and translation",
+      "12 topic modules, each with AI-generated vocabulary sets (4–20 items in natural order) and dedicated practice exercises",
+      "Backend: new /api/basics router with GET /topics, POST /set (vocabulary list), and POST /exercise endpoints",
+      "AI service: two new functions — generate_basics_set and generate_basics_exercise",
+    ],
+  },
+  {
     version: "2.1.0",
     date: "2026-06-05",
     features: [

@@ -430,3 +430,127 @@ async def suggest_phrases(
         logger.error("Failed to parse suggest_phrases JSON for lang=%s", target_lang)
         return None
 
+
+async def generate_basics_set(
+    topic: str,
+    target_language: str,
+    source_language: str = "de",
+    level: str = "A1",
+) -> Optional[dict]:
+    """Generate a vocabulary set for a language-basics topic (weekdays, months, etc.)."""
+    lang_name = LANGUAGE_NAMES.get(target_language, target_language)
+    source_lang_name = LANGUAGE_NAMES.get(source_language, source_language)
+
+    topic_configs: dict[str, dict] = {
+        "weekdays":    {"desc": "the 7 days of the week in order (Monday to Sunday)", "count": 7},
+        "months":      {"desc": "the 12 months of the year in order (January to December)", "count": 12},
+        "time":        {"desc": "essential time vocabulary: hour, minute, second, morning, afternoon, evening, night, now, later, yesterday, today, tomorrow", "count": 12},
+        "numbers":     {"desc": "numbers 1 to 20", "count": 20},
+        "colors":      {"desc": "10 basic colors", "count": 10},
+        "seasons":     {"desc": "the 4 seasons of the year", "count": 4},
+        "greetings":   {"desc": "10 essential greetings and polite phrases (hello, goodbye, please, thank you, sorry, etc.)", "count": 10},
+        "directions":  {"desc": "8 direction words: left, right, straight ahead, north, south, east, west, here", "count": 8},
+        "weather":     {"desc": "10 basic weather words: sunny, cloudy, rainy, windy, hot, cold, warm, snow, storm, fog", "count": 10},
+        "family":      {"desc": "10 basic family member words: mother, father, sister, brother, grandmother, grandfather, son, daughter, wife, husband", "count": 10},
+        "body":        {"desc": "12 basic body parts: head, eye, ear, nose, mouth, hand, arm, leg, foot, back, heart, stomach", "count": 12},
+        "food_basics": {"desc": "12 essential basic food items: bread, water, milk, egg, apple, meat, fish, rice, vegetable, fruit, coffee, juice", "count": 12},
+    }
+
+    cfg = topic_configs.get(topic, {"desc": topic, "count": 10})
+
+    prompt = (
+        f"Generate a vocabulary list for learning {lang_name} at {level} level.\n"
+        f"Topic: {cfg['desc']}\n\n"
+        f"For each item provide: the word in {lang_name}, its translation in {source_lang_name}, "
+        "and a short natural example sentence with its translation.\n"
+        "Return ONLY valid JSON (no markdown fences):\n"
+        '{"items":[{"word":"lunes","translation":"Montag",'
+        '"example":"Hoy es lunes.","example_translation":"Heute ist Montag."}]}\n\n'
+        f"Return exactly {cfg['count']} items in the natural order for this topic."
+    )
+
+    raw = _chat(prompt, max_tokens=2000)
+    if not raw:
+        return None
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = json.loads(text.strip())
+        if "items" not in data or not isinstance(data["items"], list):
+            return None
+        return data
+    except Exception:
+        logger.error("Failed to parse basics set JSON for topic=%s lang=%s", topic, target_language)
+        return None
+
+
+async def generate_basics_exercise(
+    topic: str,
+    target_language: str,
+    source_language: str = "de",
+    level: str = "A1",
+) -> Optional[dict]:
+    """Generate a fill-in-the-blank exercise for a language-basics topic."""
+    lang_name = LANGUAGE_NAMES.get(target_language, target_language)
+    source_lang_name = LANGUAGE_NAMES.get(source_language, source_language)
+
+    topic_descriptions = {
+        "weekdays":    "using the days of the week in short sentences",
+        "months":      "using months in context",
+        "time":        "telling the time and talking about when things happen",
+        "numbers":     "using numbers in everyday sentences",
+        "colors":      "describing the color of everyday objects",
+        "seasons":     "talking about seasons and typical seasonal activities",
+        "greetings":   "using greetings and polite phrases in a short dialogue",
+        "directions":  "asking for and giving directions",
+        "weather":     "describing today's weather",
+        "family":      "talking about family members",
+        "body":        "describing body parts in simple sentences",
+        "food_basics": "talking about basic foods in simple sentences",
+    }
+
+    description = topic_descriptions.get(topic, topic)
+
+    prompt = (
+        f"Create a fill-in-the-blank exercise in {lang_name} for a {level} learner.\n"
+        f"Topic: {description}\n\n"
+        "STRICT RULES:\n"
+        "1. Write 3-4 short sentences about the topic.\n"
+        "2. Choose 4-5 blanks. Only blank out words that belong to this topic category "
+        "(e.g. days of the week, colors, numbers, family members). "
+        "NEVER blank out connecting words, articles, or pronouns.\n"
+        "3. For each blank provide a short English hint (2-4 words), e.g. 'day of week', 'a color', 'a number'.\n"
+        "4. Return ONLY valid JSON, no markdown fences:\n"
+        '{"text":"Heute ist ___.","blanks":["Montag"],'
+        '"blank_hints":["day of week"],'
+        f'"translation":"{source_lang_name}: Heute ist Montag.",'
+        '"hint":"Fill in the missing words."}\n\n'
+        "blank_hints must have exactly the same length as blanks."
+    )
+
+    raw = _chat(prompt, max_tokens=700)
+    if not raw:
+        return None
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        data = json.loads(text.strip())
+        if "text" not in data or "blanks" not in data:
+            return None
+        blank_count = data["text"].count("___")
+        if blank_count != len(data["blanks"]):
+            return None
+        hints = data.get("blank_hints", [])
+        if len(hints) != blank_count:
+            data["blank_hints"] = (hints + [""] * blank_count)[:blank_count]
+        return data
+    except Exception:
+        logger.error("Failed to parse basics exercise JSON for topic=%s lang=%s", topic, target_language)
+        return None
+
