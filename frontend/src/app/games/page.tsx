@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Gamepad2, Brain } from "lucide-react";
+import { Gamepad2, Brain, Network, Layers } from "lucide-react";
 import MemoryGame from "@/components/games/MemoryGame";
+import MindmapGame from "@/components/games/MindmapGame";
+import TetrisGame from "@/components/games/TetrisGame";
 
 interface Tab {
   id: string;
@@ -20,6 +22,18 @@ export default function GamesPage() {
       label: "Memory",
       icon: <Brain className="h-4 w-4" />,
       component: <MemoryGame />,
+    },
+    {
+      id: "mindmap",
+      label: "Mind Map",
+      icon: <Network className="h-4 w-4" />,
+      component: <MindmapGame />,
+    },
+    {
+      id: "tetris",
+      label: "Tetris",
+      icon: <Layers className="h-4 w-4" />,
+      component: <TetrisGame />,
     },
   ];
 

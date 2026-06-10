@@ -7,6 +7,23 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: "2.3.0",
+    date: "2026-06-10",
+    features: [
+      "Mind Map game: new 'Mind Map' tab in the Games section — word and translation nodes arranged in concentric rings; click a word node then its translation to draw a connection and match them",
+      "Mind Map game: setup screen lets you choose target language and difficulty (Easy 5 pairs, Medium 7, Hard 9) before each round",
+      "Mind Map game: words are automatically grouped by semantic category; the round plays within a single category (Verbs, Food, Animals, …) for focused learning",
+      "Mind Map game: hover any node to see the example sentence from the database in a tooltip",
+      "Mind Map game: ghost connector lines colour green on correct match, flash red on mismatch and are removed after 750 ms",
+      "Mind Map game: progress bar, match counter, and mistake counter updated in real time; win screen shows accuracy percentage",
+      "Tetris game: new 'Tetris' tab in the Games section — full classic Tetris with all 7 tetrominoes, wall-kick rotation, ghost piece, soft drop, hard drop (+2 pts/cell), and 10 speed levels",
+      "Tetris game: Korobeiniki melody (traditional Russian folk song, ~1861, public domain) plays as a chiptune square-wave loop at 160 BPM via Web Audio API",
+      "Tetris game: keyboard controls (← → move, ↑ rotate, ↓ soft drop, Space hard drop, P pause, M mute) and touch/swipe support for mobile",
+      "Tetris game: next-piece preview, score/level/lines panel, pause overlay, and game-over screen with play-again button",
+      "Tetris game: music can be toggled on/off at any time without interrupting the game",
+    ],
+  },
+  {
     version: "2.2.0",
     date: "2026-06-07",
     features: [
